@@ -1426,7 +1426,7 @@ async function runOpenCVScan(dataUrl){
     setScanProgress(50);
 
     if(cells.length<4){
-      setScanStatus('⚠️ Wenige Zellen erkannt. Tipp: Bild gerade halten & gut beleuchten. Oder KI-Scan verwenden.','error');
+      setScanStatus('⚠️ Nur '+cells.length+' Zellen erkannt (brauche mind. 4). Tipp: Foto gerade halten, gutes Licht, nah am Schema. KI-Scan als Alternative.','error');
       srcMat.delete();setScanProgress(0);return;
     }
 
@@ -1450,8 +1450,12 @@ async function runOpenCVScan(dataUrl){
     const heats=buildHeatsFromCells(coloredCells);
     setScanProgress(75);
 
+    const completeHeats=heats.filter(h=>h.complete);
     if(heats.length===0){
-      setScanStatus('⚠️ Keine vollständigen Heats (4 Gates) erkannt. Bitte prüfen oder KI-Scan nutzen.','error');setScanProgress(0);return;
+      setScanStatus('⚠️ Keine Heats erkannt. Tipp: Foto gerader halten, mehr Licht, weniger Verzerrung. KI-Scan als Alternative.','error');setScanProgress(0);return;
+    }
+    if(completeHeats.length===0){
+      setScanStatus('⚠️ '+heats.length+' Heats gefunden aber keiner hat alle 4 Farben. Weiter mit verfügbaren Daten...','loading');
     }
 
     setScanStatus(`✓ ${heats.length} Heats gefunden — OCR läuft...`,'loading');
@@ -1525,15 +1529,16 @@ function classifyColorLAB(cellMat){
     const m=cv.mean(lab);
     const L=m[0],A=m[1],B=m[2];
     lab.delete();
-    // FIM Speedway Farben in LAB:
-    // Rot:  hoher A-Wert (>145), mittlerer B
-    // Blau: niedriger A (<128), niedriger B (<140)
-    // Gelb: hoher B-Wert (>155)
-    // Weiß: hoher L (>200), neutrale A/B
-    if(L>190&&A>120&&A<145&&B>120&&B<145)return'white';
-    if(A>148&&B<165)return'red';
-    if(A<130&&B<142)return'blue';
-    if(B>155)return'yellow';
+    // OpenCV LAB: L=0..255, A=0..255 (128=neutral), B=0..255 (128=neutral)
+    // Robuste Schwellenwerte fuer Fotos unter variablen Lichtverhältnissen
+    // Weiß/Hellgrau: hohes L, A und B nahe Mitte
+    if(L>165&&A>112&&A<148&&B>112&&B<152)return'white';
+    // Rot: A deutlich über Mitte
+    if(A>138&&B<172&&L<235)return'red';
+    // Blau: A und B deutlich unter Mitte
+    if(A<120&&B<150)return'blue';
+    // Gelb: B deutlich über Mitte, A eher erhöht
+    if(B>148&&A>125)return'yellow';
     return'none';
   }catch(e){try{lab.delete();}catch(e2){}return'none';}
 }
@@ -1562,9 +1567,9 @@ function buildHeatsFromCells(cellData){
         gates.push({row:r,color:cell.color,canvas:cell.canvas});
       }
     }
-    // Nur vollständige Heats (genau 4 farbige Zellen)
-    if(gates.length===4){
-      heats.push({heatNumber:col+1,gates});
+    // Vollständige Heats bevorzugen, aber auch 3 Gates akzeptieren
+    if(gates.length>=3){
+      heats.push({heatNumber:col+1,gates,complete:gates.length===4});
     }
   }
   return heats;
@@ -1683,11 +1688,19 @@ function enhanceImage(dataUrl){
   return new Promise(res=>{
     const img=new Image();
     img.onload=()=>{
-      const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+      // Max-Aufloesung 1920px — Claude API Limit 5MB, wir zielen auf <4MB
+      const MAX=1920;
+      let w=img.width,h=img.height;
+      if(w>MAX||h>MAX){const s=Math.min(MAX/w,MAX/h);w=Math.round(w*s);h=Math.round(h*s);}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
       const ctx=c.getContext('2d');
-      ctx.filter='contrast(120%) saturate(140%)';
-      ctx.drawImage(img,0,0);
-      res(c.toDataURL('image/jpeg',0.92));
+      ctx.filter='contrast(115%) saturate(130%)';
+      ctx.drawImage(img,0,0,w,h);
+      // Qualitaet iterativ reduzieren bis <4MB
+      let q=0.88,dataOut=c.toDataURL('image/jpeg',q);
+      while(dataOut.length>5000000&&q>0.5){q-=0.08;dataOut=c.toDataURL('image/jpeg',q);}
+      console.log('[IceHeat] Bild komprimiert: '+Math.round(dataOut.length/1024)+'KB, Qualität:'+Math.round(q*100)+'%');
+      res(dataOut);
     };
     img.onerror=()=>res(dataUrl);
     img.src=dataUrl;
