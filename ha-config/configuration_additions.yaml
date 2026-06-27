@@ -1,0 +1,44 @@
+# Additions to /config/configuration.yaml on the Home Assistant instance
+# Add these blocks to the respective sections in your configuration.yaml
+
+# ── REST Commands ──────────────────────────────────────────────────────────────
+rest_command:
+  awtrix_reboot:
+    url: "http://192.168.188.219/api/reboot"
+    method: POST
+
+  awtrix_set_mqtt:
+    url: "http://192.168.188.219/api/settings"
+    method: POST
+    content_type: "application/json"
+    payload: >-
+      {"MQTTH":"192.168.188.32","MQTTP":1883,"MQTTU":"awtrix",
+       "MQTTPW":"awtrix2024mqtt","MQTTPREFIX":"awtrix"}
+
+  # Posts current YouTube subscriber count as a custom AWTRIX app via HTTP
+  awtrix_youtube_subs:
+    url: "http://192.168.188.219/api/custom/YouTubeSubs"
+    method: POST
+    content_type: "application/json"
+    payload: >-
+      {"text":"{{ states('sensor.youtube_subscribers') }} Subs",
+       "icon":"youtube","color":"#FF0000","lifetime":300}
+
+  # Posts current YouTube view count as a custom AWTRIX app via HTTP
+  awtrix_youtube_views:
+    url: "http://192.168.188.219/api/custom/YouTubeViews"
+    method: POST
+    content_type: "application/json"
+    payload: >-
+      {"text":"{{ states('sensor.youtube_views') }} Views",
+       "icon":"youtube","color":"#FF0000","lifetime":300}
+
+# ── MQTT Binary Sensor (AWTRIX LWT) ───────────────────────────────────────────
+mqtt:
+  binary_sensor:
+    - name: "AWTRIX Online"
+      unique_id: awtrix_online_lwt
+      state_topic: "awtrix/LWT"
+      payload_on: "Online"
+      payload_off: "Offline"
+      device_class: connectivity

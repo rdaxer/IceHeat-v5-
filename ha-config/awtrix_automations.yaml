@@ -1,0 +1,93 @@
+# AWTRIX ESP32 — Home Assistant Automations
+# Device: 192.168.188.219  UID: awtrix_68a724  Firmware: v0.98
+# MQTT Broker: 192.168.188.32:1883  Prefix: awtrix
+#
+# YouTube stats are sent via HTTP REST (POST /api/custom/) every 5 minutes.
+# Watchdog monitors AWTRIX via HTTP response codes (every 10 minutes),
+# reboots the device automatically if unreachable.
+
+- alias: "YouTube Stats an Awtrix senden"
+  id: "1772875316212"
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.youtube_subscribers
+        - sensor.youtube_views
+    - trigger: time_pattern
+      minutes: "/5"
+    - trigger: homeassistant
+      event: start
+  actions:
+    - action: rest_command.awtrix_youtube_subs
+    - action: rest_command.awtrix_youtube_views
+  mode: single
+
+- alias: "AWTRIX Watchdog — Neustart bei Verbindungsverlust"
+  id: "1782546425088"
+  description: >
+    Prüft alle 10 Minuten ob AWTRIX (192.168.188.219) per HTTP erreichbar ist.
+    Nicht erreichbar → automatischer Neustart.
+    Nutzt response_variable von rest_command um HTTP-Erreichbarkeit zu prüfen.
+  triggers:
+    - trigger: time_pattern
+      minutes: "/10"
+  actions:
+    - alias: "HTTP-Erreichbarkeit prüfen (YouTube Subs senden)"
+      action: rest_command.awtrix_youtube_subs
+      response_variable: http_result
+      continue_on_error: true
+    - variables:
+        awtrix_erreichbar: "{{ http_result is mapping and http_result.get('status', 0) == 200 }}"
+    - if:
+        - condition: template
+          value_template: "{{ not awtrix_erreichbar }}"
+      then:
+        - delay:
+            minutes: 2
+        - alias: "Zweiter Erreichbarkeitsversuch"
+          action: rest_command.awtrix_youtube_subs
+          response_variable: retry_result
+          continue_on_error: true
+        - variables:
+            retry_erreichbar: "{{ retry_result is mapping and retry_result.get('status', 0) == 200 }}"
+        - if:
+            - condition: template
+              value_template: "{{ not retry_erreichbar }}"
+          then:
+            - action: rest_command.awtrix_reboot
+              continue_on_error: true
+            - delay:
+                seconds: 90
+            - action: persistent_notification.create
+              data:
+                title: "⚠️ AWTRIX Neustart"
+                message: "AWTRIX (192.168.188.219) war nicht per HTTP erreichbar. Gerät wurde automatisch neu gestartet."
+  mode: single
+  max_exceeded: silent
+
+- alias: "AWTRIX MQTT automatisch konfigurieren"
+  id: "1782549936034"
+  description: >
+    Sendet MQTT-Einstellungen beim HA-Start an AWTRIX und deaktiviert sich danach automatisch.
+    HINWEIS: AWTRIX verbindet sich aktuell nicht per MQTT. YouTube Stats werden per HTTP gesendet.
+  triggers:
+    - trigger: homeassistant
+      event: start
+  actions:
+    - delay:
+        seconds: 45
+      alias: "Warten bis HA vollständig gestartet"
+    - action: rest_command.awtrix_set_mqtt
+      continue_on_error: true
+      alias: "MQTT-Einstellungen an AWTRIX senden"
+    - delay:
+        seconds: 15
+      alias: "Warten auf AWTRIX-Verarbeitung"
+    - action: rest_command.awtrix_reboot
+      continue_on_error: true
+      alias: "AWTRIX neu starten damit MQTT verbindet"
+    - action: automation.turn_off
+      target:
+        entity_id: automation.awtrix_mqtt_automatisch_konfigurieren
+      alias: "Diese Automation deaktivieren (einmalig)"
+  mode: single
