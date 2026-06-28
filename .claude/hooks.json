@@ -4,7 +4,7 @@
       "description": "Run on session start",
       "commands": [
         "npm install --silent",
-        "echo '✓ Session initialized - ready to work!'"
+        "echo '✓ Session initialized with Design Excellence standards'"
       ]
     },
     "pre-commit": {
@@ -20,24 +20,126 @@
         "git log --oneline -1"
       ]
     },
-    "on-test-failure": {
-      "description": "Run when tests fail",
+    "on-file-save": {
+      "description": "Run when design/style files saved",
+      "trigger_patterns": [
+        "**/*.css",
+        "**/*.scss",
+        "**/design*.ts",
+        "**/theme*.ts",
+        "**/styles/**/*.{ts,tsx}",
+        "**/components/**/*.{tsx,jsx}",
+        "*.figma",
+        "*.sketch"
+      ],
       "commands": [
-        "echo '⚠ Tests failed - review test output above'"
+        "echo '🎨 Design file detected - applying Design Excellence standards...'"
       ]
     },
-    "on-save": {
-      "description": "Run when file is saved",
-      "commands": [
-        "npm run lint -- --fix 2>/dev/null || true"
-      ]
+    "on-design-task": {
+      "description": "Auto-apply Design Excellence on design-related tasks",
+      "trigger_keywords": [
+        "design",
+        "ui",
+        "ux",
+        "layout",
+        "component",
+        "style",
+        "theme",
+        "color",
+        "typography",
+        "button",
+        "card",
+        "modal",
+        "aesthetic",
+        "polish",
+        "taste",
+        "kowalsky",
+        "impeccable",
+        "landing page",
+        "dashboard"
+      ],
+      "auto_apply": {
+        "frameworks": ["emil_kowalsky", "impeccable_system"],
+        "taste_level_minimum": 2,
+        "apply_checklists": true,
+        "include_examples": true,
+        "verify_accessibility": true
+      }
+    },
+    "on-component-creation": {
+      "description": "Apply component standards when creating new UI components",
+      "trigger_patterns": [
+        "create component",
+        "new button",
+        "new card",
+        "new modal",
+        "build ui",
+        "design system"
+      ],
+      "auto_apply": {
+        "use_design_tokens": true,
+        "check_consistency": true,
+        "verify_spacing_grid": true,
+        "test_responsiveness": true,
+        "ensure_accessibility": true
+      }
+    },
+    "on-design-review": {
+      "description": "Auto-review design with taste checklist",
+      "trigger_keywords": [
+        "review design",
+        "design review",
+        "critique",
+        "feedback",
+        "improve design",
+        "polish",
+        "refine"
+      ],
+      "auto_apply": {
+        "run_taste_checklist": true,
+        "check_visual_hierarchy": true,
+        "verify_color_harmony": true,
+        "validate_typography": true,
+        "audit_whitespace": true,
+        "assess_polish_level": true
+      }
     }
   },
   "automation": {
     "auto_format": true,
     "auto_lint": true,
+    "auto_design_check": true,
+    "auto_taste_review": true,
     "auto_test_on_save": false,
     "git_auto_push": false,
-    "require_review_before_push": false
+    "require_review_before_push": false,
+    "design_excellence": {
+      "enabled": true,
+      "auto_apply_on_detection": true,
+      "frameworks": ["emil_kowalsky", "impeccable_system", "taste_skill"],
+      "minimum_taste_standard": 2,
+      "enforce_accessibility": true,
+      "verify_grid_system": true,
+      "check_color_contrast": "WCAG_AA"
+    }
+  },
+  "prompt_triggers": {
+    "design_detection": {
+      "patterns": [
+        "design.*ui",
+        "create.*component",
+        "build.*button|card|modal",
+        "landing.*page",
+        "design.*system",
+        "improve.*design",
+        "make.*professional",
+        "polish.*ui",
+        "develop.*taste",
+        "kowalsky.*style",
+        "impeccable.*design"
+      ],
+      "auto_action": "apply_design_excellence"
+    }
   }
 }
