@@ -65,6 +65,13 @@
       "enabled": true,
       "canva_integration": true,
       "dashboard_templates": true
+    },
+    "design_excellence": {
+      "enabled": true,
+      "framework": "emil_kowalsky",
+      "impeccable_system": true,
+      "taste_skill": true,
+      "auto_apply_standards": true
     }
   },
   "mcp_servers": {

@@ -64,7 +64,8 @@
 8. **[HOME_ASSISTANT.md](HOME_ASSISTANT.md)** - Smart home automation
 9. **[DASHBOARD_DESIGN.md](DASHBOARD_DESIGN.md)** - UI/UX design
 10. **[SUNO_MUSIC.md](SUNO_MUSIC.md)** - Music generation
-11. **[CLAUDE.md](CLAUDE.md)** - Project documentation
+11. **[DESIGN_EXCELLENCE.md](DESIGN_EXCELLENCE.md)** - Emil Kowalsky, Impeccable Design, Taste Skill
+12. **[CLAUDE.md](CLAUDE.md)** - Project documentation
 
 ---
 
