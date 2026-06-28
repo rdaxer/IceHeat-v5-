@@ -2,13 +2,16 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron')
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 const path = require('path');
-const isDev = require('electron-is-dev');
+const isDev = process.env.NODE_ENV === 'development';
+const UpdateService = require('./services/UpdateService');
+const { registerIpcHandlers } = require('./ipc/handlers');
 
 // Configure logging
 log.transports.file.level = 'info';
 autoUpdater.logger = log;
 
 let mainWindow;
+let updateService;
 
 // Erstelle das Hauptfenster
 function createWindow() {
@@ -51,10 +54,16 @@ function createWindow() {
 app.on('ready', async () => {
     createWindow();
     createApplicationMenu();
+    registerIpcHandlers();
 
-    // Check for updates
+    // Initialize update service
+    updateService = new UpdateService(mainWindow);
+
+    // Schedule auto-update checks
     if (!isDev) {
-        autoUpdater.checkForUpdatesAndNotify();
+        updateService.scheduleAutoCheck();
+    } else {
+        log.info('Development mode: Auto-updates disabled');
     }
 });
 
@@ -268,23 +277,6 @@ ipcMain.handle('dialog:save-file', async (event, options) => {
 // Show message box
 ipcMain.handle('dialog:message', async (event, options) => {
     return await dialog.showMessageBox(mainWindow, options);
-});
-
-// Auto-updater events
-autoUpdater.on('update-available', () => {
-    if (mainWindow) {
-        mainWindow.webContents.send('update:available');
-    }
-});
-
-autoUpdater.on('update-downloaded', () => {
-    if (mainWindow) {
-        mainWindow.webContents.send('update:downloaded');
-    }
-});
-
-autoUpdater.on('error', (error) => {
-    log.error('Auto-updater error:', error);
 });
 
 module.exports = { app, mainWindow };

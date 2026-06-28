@@ -97,30 +97,97 @@ class FilmoraService {
      * Exportiere IceHeat Reel als Filmora Project
      */
     async exportToFilmoraProject(videoPath, metadata = {}) {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             if (!this.isFilmoraInstalled) {
                 reject(new Error('Filmora ist nicht installiert'));
                 return;
             }
 
-            // Erstelle Filmora Project File (.wfp)
-            const projectName = metadata.title || 'IceHeat Reel';
-            const projectData = {
-                projectVersion: '13.0',
-                projectName: projectName,
-                projectPath: videoPath,
-                fps: metadata.fps || 30,
-                resolution: metadata.resolution || '1080p',
-                metadata: metadata,
-                importedAt: new Date().toISOString()
-            };
+            try {
+                const fs = require('fs');
+                const path = require('path');
 
-            log.info('Exporting to Filmora project:', projectData);
-            resolve({
-                success: true,
-                projectData: projectData
-            });
+                // Erstelle Filmora Project Dateistruktur
+                const projectName = metadata.title || 'IceHeat Reel';
+                const projectDir = path.join(
+                    require('electron').app.getPath('documents'),
+                    'Filmora Projects',
+                    projectName
+                );
+
+                // Erstelle Verzeichnis
+                if (!fs.existsSync(projectDir)) {
+                    fs.mkdirSync(projectDir, { recursive: true });
+                }
+
+                // Erstelle .wfp Projekt-Datei (vereinfachtes XML Format)
+                const wfpContent = this.generateFilmoraProjectXML({
+                    projectName,
+                    videoPath,
+                    duration: metadata.duration || 10,
+                    fps: metadata.fps || 30,
+                    resolution: metadata.resolution || '1080x1920',
+                    metadata
+                });
+
+                const projectFile = path.join(projectDir, `${projectName}.wfp`);
+                fs.writeFileSync(projectFile, wfpContent);
+
+                log.info('Filmora project created at:', projectFile);
+
+                resolve({
+                    success: true,
+                    projectPath: projectFile,
+                    projectDir: projectDir,
+                    projectName: projectName
+                });
+            } catch (error) {
+                reject(error);
+            }
         });
+    }
+
+    /**
+     * Generiere Filmora Project XML
+     */
+    generateFilmoraProjectXML(data) {
+        const { projectName, videoPath, duration, fps, resolution, metadata } = data;
+        const [width, height] = resolution.split('x').map(Number);
+
+        return `<?xml version="1.0" encoding="utf-8"?>
+<filmora_project version="13.0">
+    <project_info>
+        <name>${projectName}</name>
+        <created>${new Date().toISOString()}</created>
+        <duration>${duration}</duration>
+        <fps>${fps}</fps>
+        <width>${width}</width>
+        <height>${height}</height>
+    </project_info>
+
+    <timeline>
+        <track type="video">
+            <clip>
+                <source>${videoPath}</source>
+                <start>0</start>
+                <duration>${duration}</duration>
+                <position>0</position>
+                <speed>1.0</speed>
+            </clip>
+        </track>
+    </timeline>
+
+    <metadata>
+        <title>${metadata.title || ''}</title>
+        <description>${metadata.description || ''}</description>
+        <hashtags>${(metadata.hashtags || []).join(', ')}</hashtags>
+        <platform>${metadata.platform || 'tiktok'}</platform>
+    </metadata>
+
+    <effects>
+        <!-- Auto-generated hooks and effects can be added here -->
+    </effects>
+</filmora_project>`;
     }
 
     /**

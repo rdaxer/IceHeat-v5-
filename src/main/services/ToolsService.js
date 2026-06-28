@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const log = require('electron-log');
 const { app } = require('electron');
+const FFmpegService = require('./FFmpegService');
 
 /**
  * ToolsService - Local FFmpeg, ImageMagick, MediaInfo Management
