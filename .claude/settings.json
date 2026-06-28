@@ -1,0 +1,69 @@
+{
+  "model": "claude-opus-4-8",
+  "fast_mode": true,
+  "permissions": {
+    "allowlist": [
+      "bash:npm install",
+      "bash:npm test",
+      "bash:npm run",
+      "bash:git status",
+      "bash:git log",
+      "bash:git diff",
+      "bash:git add",
+      "bash:git commit",
+      "bash:git push",
+      "bash:git fetch",
+      "bash:git pull",
+      "bash:git branch",
+      "bash:git checkout",
+      "bash:yarn install",
+      "bash:yarn test",
+      "bash:pnpm install",
+      "bash:pnpm test",
+      "read:*",
+      "edit:*",
+      "glob:*",
+      "grep:*",
+      "mcp__github__*",
+      "mcp__Gmail__*",
+      "mcp__Google_Calendar__*",
+      "mcp__Google_Drive__*"
+    ]
+  },
+  "hooks": {
+    "pre-commit": "npm run lint -- --fix 2>/dev/null || true",
+    "on-start": "npm install --silent 2>/dev/null || true"
+  },
+  "statusline": {
+    "show_tokens": true,
+    "show_model": true,
+    "show_time": true
+  },
+  "editor": {
+    "auto_format": true,
+    "format_on_save": true,
+    "trim_trailing_whitespace": true
+  },
+  "mcp_servers": {
+    "github": {
+      "enabled": true,
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-github"]
+    },
+    "gmail": {
+      "enabled": true,
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-gmail"]
+    },
+    "google_calendar": {
+      "enabled": true,
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-google-calendar"]
+    },
+    "google_drive": {
+      "enabled": true,
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-google-drive"]
+    }
+  }
+}

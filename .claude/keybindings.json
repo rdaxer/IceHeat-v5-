@@ -1,0 +1,59 @@
+{
+  "keybindings": [
+    {
+      "key": "ctrl+shift+v",
+      "command": "verify",
+      "description": "Launch and verify the app in browser"
+    },
+    {
+      "key": "ctrl+shift+r",
+      "command": "code-review",
+      "description": "Review code for bugs and quality issues"
+    },
+    {
+      "key": "ctrl+shift+s",
+      "command": "simplify",
+      "description": "Simplify and optimize code"
+    },
+    {
+      "key": "ctrl+shift+g",
+      "command": "bash:git status",
+      "description": "Show git status"
+    },
+    {
+      "key": "ctrl+shift+c",
+      "command": "bash:git log --oneline -10",
+      "description": "Show recent commits"
+    },
+    {
+      "key": "ctrl+alt+shift+p",
+      "command": "bash:npm test",
+      "description": "Run tests"
+    },
+    {
+      "key": "ctrl+alt+shift+l",
+      "command": "bash:npm run lint",
+      "description": "Run linter"
+    },
+    {
+      "key": "ctrl+shift+e",
+      "command": "edit",
+      "description": "Quick edit mode"
+    },
+    {
+      "key": "ctrl+shift+f",
+      "command": "grep",
+      "description": "Search with grep"
+    },
+    {
+      "key": "ctrl+shift+d",
+      "command": "bash:git diff",
+      "description": "Show git diff"
+    }
+  ],
+  "macOS_modifiers": {
+    "ctrl": "cmd",
+    "alt": "option"
+  },
+  "notes": "For macOS, replace ctrl with cmd and alt with option in the shortcuts above"
+}

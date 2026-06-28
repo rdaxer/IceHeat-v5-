@@ -1,0 +1,43 @@
+{
+  "hooks": {
+    "session-start": {
+      "description": "Run on session start",
+      "commands": [
+        "npm install --silent",
+        "echo '✓ Session initialized - ready to work!'"
+      ]
+    },
+    "pre-commit": {
+      "description": "Run before git commit",
+      "commands": [
+        "npm run lint -- --fix 2>/dev/null || true",
+        "npm test 2>/dev/null || true"
+      ]
+    },
+    "post-commit": {
+      "description": "Run after successful commit",
+      "commands": [
+        "git log --oneline -1"
+      ]
+    },
+    "on-test-failure": {
+      "description": "Run when tests fail",
+      "commands": [
+        "echo '⚠ Tests failed - review test output above'"
+      ]
+    },
+    "on-save": {
+      "description": "Run when file is saved",
+      "commands": [
+        "npm run lint -- --fix 2>/dev/null || true"
+      ]
+    }
+  },
+  "automation": {
+    "auto_format": true,
+    "auto_lint": true,
+    "auto_test_on_save": false,
+    "git_auto_push": false,
+    "require_review_before_push": false
+  }
+}
