@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HomeAssistant 2050 — Smart Home Dashboard</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00d4ff">
+  <meta name="mobile-web-app-capable" content="true">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #00d4ff;
+      --primary-dark: #0099cc;
+      --secondary: #ff006e;
+      --accent: #ffbe0b;
+      --bg: #0a0e27;
+      --surface: rgba(20, 30, 60, 0.7);
+      --surface-light: rgba(30, 50, 100, 0.5);
+      --text: #e0e7ff;
+      --text-muted: #8892b0;
+      --border: rgba(0, 212, 255, 0.2);
+      --glass-blur: blur(10px);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1428 100%);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ANIMATED BACKGROUND */
+    #animated-background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .sky-canvas {
+      position: absolute;
+      width: 100%;
+      height: 60%;
+      top: 0;
+    }
+
+    .house-container {
+      position: absolute;
+      width: 100%;
+      height: 40%;
+      bottom: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 40px;
+    }
+
+    svg {
+      max-width: 600px;
+      height: auto;
+    }
+
+    /* UI OVERLAY */
+    .ui-container {
+      position: relative;
+      z-index: 10;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+    .header {
+      background: rgba(10, 14, 39, 0.6);
+      backdrop-filter: var(--glass-blur);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+
+    .time-display {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .time {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary);
+      font-family: 'Courier New', monospace;
+    }
+
+    .date {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: auto;
+    }
+
+    .status-badge {
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--primary); }
+      50% { opacity: 0.5; box-shadow: 0 0 16px var(--primary); }
+    }
+
+    /* MAIN CONTENT */
+    .content {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 240px;
+      background: rgba(10, 14, 39, 0.4);
+      backdrop-filter: var(--glass-blur);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(0, 212, 255, 0.3);
+      border-radius: 3px;
+    }
+
+    .nav-item {
+      padding: 14px 16px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav-item:hover {
+      background: rgba(0, 212, 255, 0.05);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      border-left-color: var(--primary);
+      background: rgba(0, 212, 255, 0.1);
+      color: var(--primary);
+    }
+
+    .nav-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .main-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .page {
+      display: none;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* PAGE LAYOUTS */
+    .page-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .page-section {
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* CARDS */
+    .card {
+      background: var(--surface);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      background: var(--surface-light);
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 212, 255, 0.15);
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .card-unit {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .card-chart {
+      height: 60px;
+      margin-top: 12px;
+      background: rgba(0, 212, 255, 0.05);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chart-bar {
+      position: absolute;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--primary), var(--secondary));
+      border-radius: 2px 2px 0 0;
+      animation: chartGrow 0.6s ease-out forwards;
+    }
+
+    @keyframes chartGrow {
+      from { height: 0; }
+      to { height: var(--height); }
+    }
+
+    /* ENERGY CARD */
+    .energy-card {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    .energy-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .energy-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .energy-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .energy-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* CONTROLS */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .control-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .control-button:hover {
+      background: var(--surface-light);
+      border-color: var(--primary);
+    }
+
+    .control-button.active {
+      background: rgba(0, 212, 255, 0.2);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .control-icon {
+      font-size: 24px;
+    }
+
+    /* CALENDAR */
+    .calendar-item {
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .calendar-time {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 50px;
+    }
+
+    .calendar-title {
+      font-size: 12px;
+      color: var(--text);
+      flex: 1;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: absolute;
+        width: 200px;
+        height: 100%;
+        z-index: 20;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .page-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        padding: 12px 16px;
+      }
+
+      .time {
+        font-size: 18px;
+      }
+
+      .main-panel {
+        padding: 16px;
+      }
+    }
+
+    /* SCROLLBAR STYLING */
+    .main-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .main-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .main-panel::-webkit-scrollbar-thumb {
+      background: rgba(0, 212, 255, 0.3);
+      border-radius: 4px;
+    }
+
+    .main-panel::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 212, 255, 0.5);
+    }
+
+    /* ANIMATIONS */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .floating {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    /* WEATHER ICON ANIMATIONS */
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .rotating {
+      animation: rotate 20s linear infinite;
+    }
+
+    @keyframes rain {
+      0% { transform: translateY(-100%); opacity: 1; }
+      100% { transform: translateY(100%); opacity: 0; }
+    }
+
+    .raindrop {
+      animation: rain 0.8s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <!-- ANIMATED BACKGROUND -->
+  <div id="animated-background">
+    <div class="sky-canvas">
+      <svg id="sky-svg" width="100%" height="100%" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+        <!-- SKY GRADIENT (Dynamic based on time) -->
+        <defs>
+          <linearGradient id="sky-day" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#E0F6FF;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="sky-sunset" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#FFA500;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#FFD700;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="sky-night" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#0a1f4d;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1a2f5a;stop-opacity:1" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+
+        <!-- SKY BACKGROUND -->
+        <rect id="sky-rect" width="1200" height="700" fill="url(#sky-day)"/>
+
+        <!-- SUN (day) / MOON (night) -->
+        <circle id="sun" cx="200" cy="150" r="60" fill="#FFD700" filter="url(#glow)" opacity="1"/>
+        <circle id="moon" cx="1000" cy="100" r="50" fill="#E8E8E8" filter="url(#glow)" opacity="0" />
+
+        <!-- CLOUDS -->
+        <g id="clouds">
+          <ellipse cx="300" cy="200" rx="60" ry="40" fill="rgba(255,255,255,0.8)"/>
+          <ellipse cx="350" cy="200" rx="80" ry="45" fill="rgba(255,255,255,0.7)"/>
+          <ellipse cx="400" cy="200" rx="60" ry="40" fill="rgba(255,255,255,0.8)"/>
+
+          <ellipse cx="800" cy="250" rx="70" ry="35" fill="rgba(200,200,200,0.6)"/>
+          <ellipse cx="860" cy="250" rx="90" ry="40" fill="rgba(200,200,200,0.5)"/>
+          <ellipse cx="920" cy="250" rx="70" ry="35" fill="rgba(200,200,200,0.6)"/>
+        </g>
+
+        <!-- RAIN DROPS (hidden by default) -->
+        <g id="rain-group" opacity="0">
+          <line x1="100" y1="100" x2="90" y2="150" stroke="rgba(0,200,255,0.6)" stroke-width="2"/>
+          <line x1="150" y1="100" x2="140" y2="150" stroke="rgba(0,200,255,0.6)" stroke-width="2"/>
+          <line x1="200" y1="100" x2="190" y2="150" stroke="rgba(0,200,255,0.6)" stroke-width="2"/>
+          <line x1="250" y1="100" x2="240" y2="150" stroke="rgba(0,200,255,0.6)" stroke-width="2"/>
+          <line x1="300" y1="100" x2="290" y2="150" stroke="rgba(0,200,255,0.6)" stroke-width="2"/>
+        </g>
+
+        <!-- STARS (night) -->
+        <g id="stars" opacity="0">
+          <circle cx="150" cy="80" r="1.5" fill="white"/>
+          <circle cx="280" cy="120" r="1" fill="white"/>
+          <circle cx="450" cy="90" r="1.2" fill="white"/>
+          <circle cx="650" cy="110" r="1" fill="white"/>
+          <circle cx="800" cy="70" r="1.5" fill="white"/>
+          <circle cx="950" cy="130" r="1" fill="white"/>
+          <circle cx="1050" cy="60" r="1.2" fill="white"/>
+          <circle cx="1100" cy="150" r="1" fill="white"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="house-container">
+      <svg id="house-svg" width="400" height="300" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="roof-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#2a2a2a;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1a1a1a;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="wall-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#e8e8e8;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#d0d0d0;stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="battery-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#0099cc;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+
+        <!-- FOUNDATION -->
+        <rect x="50" y="220" width="300" height="60" fill="#6b6b6b" rx="4"/>
+
+        <!-- WALLS -->
+        <rect x="60" y="120" width="280" height="100" fill="url(#wall-gradient)" rx="4"/>
+
+        <!-- ROOF (Triangle) -->
+        <polygon points="200,40 60,120 340,120" fill="url(#roof-gradient)"/>
+
+        <!-- DOOR -->
+        <rect x="180" y="180" width="40" height="60" fill="#8b4513" rx="2"/>
+        <circle cx="215" cy="210" r="3" fill="#ffd700"/>
+
+        <!-- WINDOWS -->
+        <rect x="80" y="140" width="30" height="30" fill="#87ceeb" rx="2"/>
+        <line x1="95" y1="140" x2="95" y2="170" stroke="#4a4a4a" stroke-width="1"/>
+        <line x1="80" y1="155" x2="110" y2="155" stroke="#4a4a4a" stroke-width="1"/>
+
+        <rect x="290" y="140" width="30" height="30" fill="#87ceeb" rx="2"/>
+        <line x1="305" y1="140" x2="305" y2="170" stroke="#4a4a4a" stroke-width="1"/>
+        <line x1="290" y1="155" x2="320" y2="155" stroke="#4a4a4a" stroke-width="1"/>
+
+        <!-- SOLAR PANELS (on roof) -->
+        <g id="solar-panels" class="rotating" style="transform-origin: 200px 80px;">
+          <rect x="140" y="50" width="15" height="30" fill="#1a1a2e" stroke="#00d4ff" stroke-width="1.5" opacity="0.8"/>
+          <rect x="160" y="50" width="15" height="30" fill="#1a1a2e" stroke="#00d4ff" stroke-width="1.5" opacity="0.8"/>
+          <rect x="180" y="50" width="15" height="30" fill="#1a1a2e" stroke="#00d4ff" stroke-width="1.5" opacity="0.8"/>
+          <rect x="200" y="50" width="15" height="30" fill="#1a1a2e" stroke="#00d4ff" stroke-width="1.5" opacity="0.8"/>
+          <rect x="220" y="50" width="15" height="30" fill="#1a1a2e" stroke="#00d4ff" stroke-width="1.5" opacity="0.8"/>
+          <rect x="240" y="50" width="15" height="30" fill="#1a1a2e" stroke="#00d4ff" stroke-width="1.5" opacity="0.8"/>
+          <text x="200" y="95" text-anchor="middle" font-size="10" fill="#00d4ff" font-weight="bold">SOLAR</text>
+        </g>
+
+        <!-- BATTERY STORAGE (3 units) -->
+        <g id="batteries">
+          <!-- Battery 1 (Left) -->
+          <rect x="30" y="200" width="50" height="70" fill="url(#battery-gradient)" rx="4" stroke="#00ffff" stroke-width="2"/>
+          <rect x="32" y="202" width="46" height="35" fill="rgba(0,255,255,0.3)" rx="2"/>
+          <text x="55" y="250" text-anchor="middle" font-size="11" fill="white" font-weight="bold">BAT 1</text>
+          <text x="55" y="265" text-anchor="middle" font-size="9" fill="#00d4ff" font-weight="bold" class="battery-percent">85%</text>
+
+          <!-- Battery 2 (Center) -->
+          <rect x="175" y="200" width="50" height="70" fill="url(#battery-gradient)" rx="4" stroke="#00ffff" stroke-width="2"/>
+          <rect x="177" y="202" width="46" height="45" fill="rgba(0,255,255,0.4)" rx="2"/>
+          <text x="200" y="250" text-anchor="middle" font-size="11" fill="white" font-weight="bold">BAT 2</text>
+          <text x="200" y="265" text-anchor="middle" font-size="9" fill="#00d4ff" font-weight="bold" class="battery-percent">72%</text>
+
+          <!-- Battery 3 (Right) -->
+          <rect x="320" y="200" width="50" height="70" fill="url(#battery-gradient)" rx="4" stroke="#00ffff" stroke-width="2"/>
+          <rect x="322" y="202" width="46" height="55" fill="rgba(0,255,255,0.5)" rx="2"/>
+          <text x="345" y="250" text-anchor="middle" font-size="11" fill="white" font-weight="bold">BAT 3</text>
+          <text x="345" y="265" text-anchor="middle" font-size="9" fill="#00d4ff" font-weight="bold" class="battery-percent">92%</text>
+        </g>
+
+        <!-- GROUND GLOW -->
+        <ellipse cx="200" cy="285" rx="150" ry="15" fill="rgba(0,212,255,0.2)" filter="url(#glow)"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- UI OVERLAY -->
+  <div class="ui-container">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">⚡ 2050</div>
+        <div class="time-display">
+          <div class="time" id="current-time">14:32</div>
+          <div class="date" id="current-date">FR, 28 JUN 2026</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-badge">
+          <div class="status-dot"></div>
+          <span>Connected</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="content">
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="nav-item active" data-page="overview">
+          <span class="nav-icon">🏠</span>
+          <span>Übersicht</span>
+        </div>
+        <div class="nav-item" data-page="energy">
+          <span class="nav-icon">⚡</span>
+          <span>Energie</span>
+        </div>
+        <div class="nav-item" data-page="climate">
+          <span class="nav-icon">🌡️</span>
+          <span>Klima</span>
+        </div>
+        <div class="nav-item" data-page="lights">
+          <span class="nav-icon">💡</span>
+          <span>Beleuchtung</span>
+        </div>
+        <div class="nav-item" data-page="calendar">
+          <span class="nav-icon">📅</span>
+          <span>Kalender</span>
+        </div>
+      </div>
+
+      <!-- MAIN PANEL -->
+      <div class="main-panel">
+        <!-- PAGE: OVERVIEW -->
+        <div class="page active" id="page-overview">
+          <div class="page-section">
+            <div class="section-title">🌍 Wetterdaten</div>
+            <div class="page-grid">
+              <div class="card">
+                <div class="card-title">Temperatur</div>
+                <div class="card-value" id="weather-temp">22°C</div>
+                <div class="card-unit">Außenluft</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Luftfeuchte</div>
+                <div class="card-value" id="weather-humidity">65%</div>
+                <div class="card-unit">Relative</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Wetterlage</div>
+                <div class="card-value" id="weather-condition">☀️</div>
+                <div class="card-unit">Sonnig</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-section">
+            <div class="section-title">⚡ Energie-Status</div>
+            <div class="card" style="padding: 24px;">
+              <div class="energy-card">
+                <div class="energy-item">
+                  <div class="energy-icon">🔋</div>
+                  <div class="energy-value" id="battery-1-percent">85%</div>
+                  <div class="energy-label">Speicher 1</div>
+                </div>
+                <div class="energy-item">
+                  <div class="energy-icon">🔋</div>
+                  <div class="energy-value" id="battery-2-percent">72%</div>
+                  <div class="energy-label">Speicher 2</div>
+                </div>
+                <div class="energy-item">
+                  <div class="energy-icon">🔋</div>
+                  <div class="energy-value" id="battery-3-percent">92%</div>
+                  <div class="energy-label">Speicher 3</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-section">
+            <div class="section-title">🏡 Schnellzugriff</div>
+            <div class="controls-grid">
+              <button class="control-button" onclick="toggleControl('light-living')">
+                <span class="control-icon">💡</span>
+                <span>Wohnzimmer</span>
+              </button>
+              <button class="control-button" onclick="toggleControl('light-bedroom')">
+                <span class="control-icon">🛏️</span>
+                <span>Schlafzimmer</span>
+              </button>
+              <button class="control-button" onclick="toggleControl('light-kitchen')">
+                <span class="control-icon">🍳</span>
+                <span>Küche</span>
+              </button>
+              <button class="control-button" onclick="toggleControl('light-bath')">
+                <span class="control-icon">🚿</span>
+                <span>Bad</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE: ENERGY -->
+        <div class="page" id="page-energy">
+          <div class="page-section">
+            <div class="section-title">⚡ Energieverbrauch</div>
+            <div class="page-grid">
+              <div class="card">
+                <div class="card-title">Solarertrag</div>
+                <div class="card-value" id="solar-output">4.2 kW</div>
+                <div class="card-unit">Leistung</div>
+                <div class="card-chart" id="solar-chart">
+                  <div class="chart-bar" style="--height: 45%; left: 5%; background: linear-gradient(180deg, #ffbe0b, #ffa500);"></div>
+                  <div class="chart-bar" style="--height: 65%; left: 15%; background: linear-gradient(180deg, #ffbe0b, #ffa500);"></div>
+                  <div class="chart-bar" style="--height: 78%; left: 25%; background: linear-gradient(180deg, #ffbe0b, #ffa500);"></div>
+                  <div class="chart-bar" style="--height: 82%; left: 35%; background: linear-gradient(180deg, #ffbe0b, #ffa500);"></div>
+                  <div class="chart-bar" style="--height: 90%; left: 45%; background: linear-gradient(180deg, #ffbe0b, #ffa500);"></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title">Netzbezug</div>
+                <div class="card-value" id="grid-import">0.3 kW</div>
+                <div class="card-unit">Von Netz</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Netzeinspeisung</div>
+                <div class="card-value" id="grid-export">2.1 kW</div>
+                <div class="card-unit">Ins Netz</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-section">
+            <div class="section-title">🔋 Speicherzustände</div>
+            <div class="page-grid">
+              <div class="card">
+                <div class="card-title">Speicher 1</div>
+                <div class="card-value" id="battery-1-detail">85%</div>
+                <div class="card-unit">Kapazität: 10 kWh</div>
+                <div class="card-chart" id="battery-1-chart">
+                  <div class="chart-bar" style="--height: 85%; left: 50%; width: 30px; background: linear-gradient(180deg, #00d4ff, #0099cc);"></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title">Speicher 2</div>
+                <div class="card-value" id="battery-2-detail">72%</div>
+                <div class="card-unit">Kapazität: 10 kWh</div>
+                <div class="card-chart" id="battery-2-chart">
+                  <div class="chart-bar" style="--height: 72%; left: 50%; width: 30px; background: linear-gradient(180deg, #00d4ff, #0099cc);"></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title">Speicher 3</div>
+                <div class="card-value" id="battery-3-detail">92%</div>
+                <div class="card-unit">Kapazität: 10 kWh</div>
+                <div class="card-chart" id="battery-3-chart">
+                  <div class="chart-bar" style="--height: 92%; left: 50%; width: 30px; background: linear-gradient(180deg, #00d4ff, #0099cc);"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE: CLIMATE -->
+        <div class="page" id="page-climate">
+          <div class="page-section">
+            <div class="section-title">🌡️ Klima & Komfort</div>
+            <div class="page-grid">
+              <div class="card">
+                <div class="card-title">Wohnzimmer Temperatur</div>
+                <div class="card-value" id="climate-living">21.5°C</div>
+                <div class="card-unit">Sollwert: 22°C</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Wohnzimmer Feuchte</div>
+                <div class="card-value" id="humidity-living">52%</div>
+                <div class="card-unit">Optimal: 45-55%</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Schlafzimmer Temperatur</div>
+                <div class="card-value" id="climate-bedroom">19.2°C</div>
+                <div class="card-unit">Sollwert: 18°C</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-section">
+            <div class="section-title">🌬️ Lüftung & Heizung</div>
+            <div class="controls-grid">
+              <button class="control-button" onclick="toggleControl('heating')">
+                <span class="control-icon">🔥</span>
+                <span>Heizung</span>
+              </button>
+              <button class="control-button" onclick="toggleControl('cooling')">
+                <span class="control-icon">❄️</span>
+                <span>Kühlung</span>
+              </button>
+              <button class="control-button" onclick="toggleControl('ventilation')">
+                <span class="control-icon">💨</span>
+                <span>Lüftung</span>
+              </button>
+              <button class="control-button" onclick="toggleControl('fan')">
+                <span class="control-icon">🌪️</span>
+                <span>Ventilator</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE: LIGHTS -->
+        <div class="page" id="page-lights">
+          <div class="page-section">
+            <div class="section-title">💡 Beleuchtung</div>
+            <div class="page-grid">
+              <div class="card">
+                <div class="card-title">Wohnzimmer</div>
+                <div class="card-value" id="light-living-brightness">75%</div>
+                <div class="card-unit">Helligkeit</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Schlafzimmer</div>
+                <div class="card-value" id="light-bedroom-brightness">0%</div>
+                <div class="card-unit">Aus</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Küche</div>
+                <div class="card-value" id="light-kitchen-brightness">100%</div>
+                <div class="card-unit">Helligkeit</div>
+              </div>
+              <div class="card">
+                <div class="card-title">Bad</div>
+                <div class="card-value" id="light-bath-brightness">50%</div>
+                <div class="card-unit">Helligkeit</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-section">
+            <div class="section-title">⚙️ Szenen</div>
+            <div class="controls-grid">
+              <button class="control-button" onclick="applyScene('morning')">
+                <span class="control-icon">🌅</span>
+                <span>Morgens</span>
+              </button>
+              <button class="control-button" onclick="applyScene('work')">
+                <span class="control-icon">💼</span>
+                <span>Arbeiten</span>
+              </button>
+              <button class="control-button" onclick="applyScene('evening')">
+                <span class="control-icon">🌆</span>
+                <span>Abends</span>
+              </button>
+              <button class="control-button" onclick="applyScene('sleep')">
+                <span class="control-icon">😴</span>
+                <span>Schlafen</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE: CALENDAR -->
+        <div class="page" id="page-calendar">
+          <div class="page-section">
+            <div class="section-title">📅 Kommende Termine</div>
+            <div id="calendar-events">
+              <div class="calendar-item">
+                <div class="calendar-time">10:00</div>
+                <div class="calendar-title">Team Meeting</div>
+              </div>
+              <div class="calendar-item">
+                <div class="calendar-time">14:30</div>
+                <div class="calendar-title">Zahnarzt-Termin</div>
+              </div>
+              <div class="calendar-item">
+                <div class="calendar-time">17:00</div>
+                <div class="calendar-title">Einkaufen gehen</div>
+              </div>
+              <div class="calendar-item">
+                <div class="calendar-time">19:30</div>
+                <div class="calendar-title">Filmabend mit Familie</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-section">
+            <div class="section-title">📌 Wichtig</div>
+            <div class="card">
+              <div class="card-title">Nächster Termin</div>
+              <div class="card-value">Team Meeting</div>
+              <div class="card-unit">10:00 Uhr · Heute</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======================
+    // TIME & DATE UPDATE
+    // ======================
+    function updateTime() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const day = now.toLocaleDateString('de-DE', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+
+      document.getElementById('current-time').textContent = `${hours}:${minutes}`;
+      document.getElementById('current-date').textContent = day;
+
+      // Update sky based on time
+      updateSkyByTime(now);
+    }
+
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    // ======================
+    // SKY ANIMATION ENGINE
+    // ======================
+    function updateSkyByTime(date) {
+      const hours = date.getHours();
+      const sun = document.getElementById('sun');
+      const moon = document.getElementById('moon');
+      const skyRect = document.getElementById('sky-rect');
+      const clouds = document.getElementById('clouds');
+      const stars = document.getElementById('stars');
+      let sunOpacity = 0, moonOpacity = 0, skyGradient = 'sky-day';
+
+      if (hours >= 6 && hours < 9) {
+        // SUNRISE
+        sunOpacity = (hours - 6 + (date.getMinutes() / 60)) / 3;
+        skyGradient = 'sky-sunset';
+      } else if (hours >= 9 && hours < 17) {
+        // DAY
+        sunOpacity = 1;
+        skyGradient = 'sky-day';
+      } else if (hours >= 17 && hours < 20) {
+        // SUNSET
+        sunOpacity = 1 - ((hours - 17 + (date.getMinutes() / 60)) / 3);
+        skyGradient = 'sky-sunset';
+      } else {
+        // NIGHT
+        moonOpacity = 1;
+        skyGradient = 'sky-night';
+      }
+
+      sun.setAttribute('opacity', sunOpacity);
+      moon.setAttribute('opacity', moonOpacity);
+      skyRect.setAttribute('fill', `url(#${skyGradient})`);
+      clouds.setAttribute('opacity', sunOpacity > 0.5 ? 1 : 0.3);
+      stars.setAttribute('opacity', moonOpacity > 0.5 ? 1 : 0);
+
+      // Update sun position based on time
+      const sunProgress = ((hours % 24) - 6) / 12;
+      const sunX = 150 + (sunProgress * 900);
+      const sunY = 600 - (Math.abs(sunProgress - 0.5) * 500);
+      sun.setAttribute('cx', Math.max(100, Math.min(1100, sunX)));
+      sun.setAttribute('cy', Math.max(50, Math.min(450, sunY)));
+    }
+
+    // ======================
+    // PAGE NAVIGATION
+    // ======================
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function() {
+        const pageId = `page-${this.dataset.page}`;
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+        document.getElementById(pageId).classList.add('active');
+        this.classList.add('active');
+      });
+    });
+
+    // ======================
+    // MOCK DATA & CONTROLS
+    // ======================
+    let controlStates = {
+      'light-living': false,
+      'light-bedroom': false,
+      'light-kitchen': false,
+      'light-bath': false,
+      'heating': false,
+      'cooling': false,
+      'ventilation': false,
+      'fan': false
+    };
+
+    let sensorData = {
+      weather: { temp: 22, humidity: 65, condition: '☀️' },
+      batteries: [85, 72, 92],
+      solar: 4.2,
+      gridImport: 0.3,
+      gridExport: 2.1,
+      climate: { living: 21.5, bedroom: 19.2 },
+      humidity: { living: 52 },
+      lights: { living: 75, bedroom: 0, kitchen: 100, bath: 50 }
+    };
+
+    function updateUI() {
+      // Weather
+      document.getElementById('weather-temp').textContent = `${sensorData.weather.temp}°C`;
+      document.getElementById('weather-humidity').textContent = `${sensorData.weather.humidity}%`;
+      document.getElementById('weather-condition').textContent = sensorData.weather.condition;
+
+      // Batteries
+      document.getElementById('battery-1-percent').textContent = `${sensorData.batteries[0]}%`;
+      document.getElementById('battery-2-percent').textContent = `${sensorData.batteries[1]}%`;
+      document.getElementById('battery-3-percent').textContent = `${sensorData.batteries[2]}%`;
+      document.getElementById('battery-1-detail').textContent = `${sensorData.batteries[0]}%`;
+      document.getElementById('battery-2-detail').textContent = `${sensorData.batteries[1]}%`;
+      document.getElementById('battery-3-detail').textContent = `${sensorData.batteries[2]}%`;
+
+      // SVG batteries
+      document.querySelectorAll('.battery-percent').forEach((el, i) => {
+        el.textContent = `${sensorData.batteries[i]}%`;
+      });
+
+      // Energy
+      document.getElementById('solar-output').textContent = `${sensorData.solar} kW`;
+      document.getElementById('grid-import').textContent = `${sensorData.gridImport} kW`;
+      document.getElementById('grid-export').textContent = `${sensorData.gridExport} kW`;
+
+      // Climate
+      document.getElementById('climate-living').textContent = `${sensorData.climate.living}°C`;
+      document.getElementById('climate-bedroom').textContent = `${sensorData.climate.bedroom}°C`;
+      document.getElementById('humidity-living').textContent = `${sensorData.humidity.living}%`;
+
+      // Lights
+      document.getElementById('light-living-brightness').textContent = `${sensorData.lights.living}%`;
+      document.getElementById('light-bedroom-brightness').textContent = `${sensorData.lights.bedroom}%`;
+      document.getElementById('light-kitchen-brightness').textContent = `${sensorData.lights.kitchen}%`;
+      document.getElementById('light-bath-brightness').textContent = `${sensorData.lights.bath}%`;
+    }
+
+    function toggleControl(controlId) {
+      controlStates[controlId] = !controlStates[controlId];
+      const button = event.target.closest('.control-button');
+      button.classList.toggle('active');
+
+      // Update light brightness on toggle
+      if (controlId.includes('light')) {
+        const lightKey = controlId.replace('light-', '');
+        sensorData.lights[lightKey] = controlStates[controlId] ? 75 : 0;
+        updateUI();
+      }
+    }
+
+    function applyScene(sceneName) {
+      const scenes = {
+        morning: { lights: { living: 100, bedroom: 50, kitchen: 100, bath: 50 }, temp: 22 },
+        work: { lights: { living: 75, bedroom: 0, kitchen: 100, bath: 50 }, temp: 21 },
+        evening: { lights: { living: 50, bedroom: 0, kitchen: 75, bath: 75 }, temp: 21 },
+        sleep: { lights: { living: 0, bedroom: 10, kitchen: 0, bath: 0 }, temp: 18 }
+      };
+
+      const scene = scenes[sceneName];
+      sensorData.lights = scene.lights;
+      sensorData.climate.living = scene.temp;
+      updateUI();
+    }
+
+    // ======================
+    // SIMULATE LIVE DATA UPDATES
+    // ======================
+    setInterval(() => {
+      // Simulate temperature change
+      sensorData.weather.temp = 20 + Math.random() * 4;
+      sensorData.weather.humidity = 60 + Math.random() * 20;
+
+      // Simulate battery changes
+      sensorData.batteries[0] = Math.max(0, Math.min(100, sensorData.batteries[0] + (Math.random() - 0.5) * 2));
+      sensorData.batteries[1] = Math.max(0, Math.min(100, sensorData.batteries[1] + (Math.random() - 0.5) * 2));
+      sensorData.batteries[2] = Math.max(0, Math.min(100, sensorData.batteries[2] + (Math.random() - 0.5) * 2));
+
+      // Simulate solar output
+      const hour = new Date().getHours();
+      const dayFactor = Math.max(0, Math.sin((hour - 6) * Math.PI / 12));
+      sensorData.solar = dayFactor * 5 + Math.random() * 0.5;
+      sensorData.gridImport = Math.max(0, 1 - sensorData.solar + Math.random() * 0.5);
+      sensorData.gridExport = Math.max(0, sensorData.solar - 2 + Math.random() * 0.5);
+
+      updateUI();
+    }, 3000);
+
+    // Initial UI update
+    updateUI();
+  </script>
+</body>
+</html>
