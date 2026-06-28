@@ -4,6 +4,8 @@ const log = require('electron-log');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 const UpdateService = require('./services/UpdateService');
+const SystemTrayService = require('./services/SystemTrayService');
+const FileAssociationService = require('./services/FileAssociationService');
 const { registerIpcHandlers } = require('./ipc/handlers');
 
 // Configure logging
@@ -12,6 +14,8 @@ autoUpdater.logger = log;
 
 let mainWindow;
 let updateService;
+let trayService;
+let fileAssociationService;
 
 // Erstelle das Hauptfenster
 function createWindow() {
@@ -56,8 +60,14 @@ app.on('ready', async () => {
     createApplicationMenu();
     registerIpcHandlers();
 
-    // Initialize update service
+    // Initialize services
     updateService = new UpdateService(mainWindow);
+    trayService = new SystemTrayService(mainWindow);
+    fileAssociationService = new FileAssociationService();
+
+    // Register file associations (requires admin rights on first run)
+    await fileAssociationService.registerFileAssociations()
+        .catch(err => log.warn('File associations registration skipped:', err));
 
     // Schedule auto-update checks
     if (!isDev) {
@@ -237,22 +247,6 @@ function createApplicationMenu() {
 }
 
 // ===== IPC HANDLERS =====
-
-// Demo Filmora Detection (wird später mit echter Registry-Logik ersetzt)
-ipcMain.handle('filmora:detect', async () => {
-    // TODO: Implement real Registry detection
-    return {
-        installed: false,
-        path: null,
-        version: null
-    };
-});
-
-// Demo Filmora Launch
-ipcMain.handle('filmora:launch', async () => {
-    // TODO: Implement real Filmora launch
-    return { success: false };
-});
 
 // Get App Info
 ipcMain.handle('app:info', async () => {
