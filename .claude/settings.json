@@ -20,6 +20,8 @@
       "bash:yarn test",
       "bash:pnpm install",
       "bash:pnpm test",
+      "bash:curl",
+      "bash:wget",
       "read:*",
       "edit:*",
       "glob:*",
@@ -27,12 +29,15 @@
       "mcp__github__*",
       "mcp__Gmail__*",
       "mcp__Google_Calendar__*",
-      "mcp__Google_Drive__*"
+      "mcp__Google_Drive__*",
+      "mcp__HA-MCP__*",
+      "mcp__Canva__*"
     ]
   },
   "hooks": {
     "pre-commit": "npm run lint -- --fix 2>/dev/null || true",
-    "on-start": "npm install --silent 2>/dev/null || true"
+    "on-start": "npm install --silent 2>/dev/null || true",
+    "on-homeassistant-trigger": "echo '🏠 Home Assistant automation triggered'"
   },
   "statusline": {
     "show_tokens": true,
@@ -43,6 +48,24 @@
     "auto_format": true,
     "format_on_save": true,
     "trim_trailing_whitespace": true
+  },
+  "specialization": {
+    "home_assistant": {
+      "enabled": true,
+      "auto_apply_best_practices": true,
+      "dashboard_design_enabled": true,
+      "automation_templates": true
+    },
+    "music_generation": {
+      "enabled": true,
+      "provider": "suno",
+      "auto_generate_on_request": true
+    },
+    "design_system": {
+      "enabled": true,
+      "canva_integration": true,
+      "dashboard_templates": true
+    }
   },
   "mcp_servers": {
     "github": {
@@ -64,6 +87,14 @@
       "enabled": true,
       "command": "npx",
       "args": ["@modelcontextprotocol/server-google-drive"]
+    },
+    "home_assistant": {
+      "enabled": true,
+      "description": "Home Assistant automation, dashboards, integrations"
+    },
+    "canva": {
+      "enabled": true,
+      "description": "Canva design for dashboards and presentations"
     }
   }
 }
