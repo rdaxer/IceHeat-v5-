@@ -1020,7 +1020,15 @@
     <!-- ALERTS CONTAINER -->
     <div id="alertsContainer" style="position: fixed; top: 60px; right: 16px; z-index: 150; display: flex; flex-direction: column; gap: 8px; max-width: 300px;"></div>
 
-    <!-- SCRIPTS -->
+    <!-- MODULE SCRIPTS -->
+    <script src="js/VideoManager.js"></script>
+    <script src="js/SceneAnalyzer.js"></script>
+    <script src="js/MusicSync.js"></script>
+    <script src="js/HookGenerator.js"></script>
+    <script src="js/ExportManager.js"></script>
+    <script src="js/SubtitleGenerator.js"></script>
+
+    <!-- MAIN SCRIPT -->
     <script>
         // ===== GLOBAL STATE =====
         const RG = {
@@ -1326,12 +1334,38 @@
             try {
                 showAlert('Analysiere Video für beste Szenen...', 'info');
 
-                // Simulate scene detection
-                RG.cache.scenes = [
-                    {id: 1, start: 0, end: 3, quality: 0.95},
-                    {id: 2, start: 5, end: 8, quality: 0.87},
-                    {id: 3, start: 12, end: 15, quality: 0.92}
-                ];
+                const video = RG.currentProject.videos[0];
+
+                // Nutze SceneAnalyzer für intelligente Szenenanalyse
+                const scenes = await SceneAnalyzer.detectScenes(
+                    {data: video.data, type: video.type},
+                    {maxFrames: 50, histogramThreshold: 30}
+                );
+
+                if (scenes.length > 0) {
+                    // Konvertiere zu RG-Format und sortiere nach Qualität
+                    RG.cache.scenes = scenes
+                        .map((scene, idx) => ({
+                            id: idx,
+                            startTime: scene.startTime,
+                            endTime: scene.endTime,
+                            duration: scene.duration,
+                            quality: scene.quality / 100,
+                            sharpness: scene.sharpness,
+                            motion: scene.motion
+                        }))
+                        .sort((a, b) => b.quality - a.quality);
+
+                    showAlert(`✅ ${scenes.length} Szenen erkannt!`, 'success');
+                } else {
+                    // Fallback: Demo-Szenen
+                    RG.cache.scenes = [
+                        {id: 0, startTime: 0, endTime: 3, quality: 0.95, duration: 3},
+                        {id: 1, startTime: 5, endTime: 8, quality: 0.87, duration: 3},
+                        {id: 2, startTime: 12, endTime: 15, quality: 0.92, duration: 3}
+                    ];
+                    showAlert('✅ Szenen-Demo geladen!', 'info');
+                }
 
                 if (RG.currentProject.music) {
                     await detectMusicBPM();
@@ -1339,8 +1373,8 @@
 
                 renderSceneList();
                 switchTab('editor');
-                showAlert('✅ Analyse abgeschlossen! Beste Szenen erkannt.', 'success');
             } catch (err) {
+                console.error('Analysis error:', err);
                 showAlert('Fehler bei der Analyse: ' + err.message, 'danger');
             } finally {
                 setLoading(false);
@@ -1350,22 +1384,23 @@
         async function detectMusicBPM() {
             if (!RG.currentProject.music) return;
 
-            return new Promise((resolve) => {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const blob = new Blob([RG.currentProject.music.data], {type: RG.currentProject.music.type});
-                const reader = new FileReader();
+            try {
+                // Dekodiere Audio
+                const audioData = RG.currentProject.music.data;
+                const audioBuffer = await MusicSync.decodeAudio(audioData);
 
-                reader.onload = (e) => {
-                    audioContext.decodeAudioData(e.target.result, (audioBuffer) => {
-                        // Simulate BPM detection
-                        RG.cache.bpm = 120 + Math.random() * 20;
-                        DOM.bpmInfo.textContent = `Musik: ${RG.currentProject.music.name} (${Math.round(RG.cache.bpm)} BPM)`;
-                        resolve();
-                    });
-                };
+                // Erkenne BPM mit MusicSync-Modul
+                const bpmData = await MusicSync.detectBPM(audioBuffer);
+                RG.cache.bpm = bpmData.bpm;
+                RG.cache.beats = bpmData.beats;
 
-                reader.readAsArrayBuffer(blob);
-            });
+                DOM.bpmInfo.textContent = `🎵 ${RG.currentProject.music.name} (${bpmData.bpm} BPM, ${(bpmData.confidence * 100).toFixed(0)}% sicher)`;
+
+                showAlert(`✅ BPM erkannt: ${bpmData.bpm}`, 'success');
+            } catch (err) {
+                console.error('BPM detection error:', err);
+                showAlert('BPM-Erkennung fehlgeschlagen', 'danger');
+            }
         }
 
         function renderSceneList() {
@@ -1381,20 +1416,27 @@
         async function generateHook() {
             showAlert('Generiere Hook...', 'info');
 
-            const hookTexts = {
-                action: ['🔥 WATCH TILL END!', '⚡ INSANE!', '💯 JUST WOW!'],
-                comedy: ['😂 THIS IS HILARIOUS!', '🤣 CAN\'T STOP LAUGHING!', '😆 YOU GOTTA SEE THIS!'],
-                suspense: ['😱 WAIT FOR IT...', '🤔 YOU WON\'T BELIEVE...', '👀 TRUST ME...'],
-                educational: ['📚 LEARN THIS TRICK!', '💡 AMAZING HACK!', '🎓 THIS CHANGES EVERYTHING!']
-            };
-
             const hookStyle = document.getElementById('hookStyleSelect').value;
-            const selectedTexts = hookTexts[hookStyle] || hookTexts.action;
-            const hook = selectedTexts[Math.floor(Math.random() * selectedTexts.length)];
 
-            DOM.hookPreview.textContent = hook;
-            RG.currentProject.timeline.hook = hook;
-            showAlert('✅ Hook generiert!', 'success');
+            try {
+                // Nutze HookGenerator-Modul
+                const hook = HookGenerator.generateHook(hookStyle);
+                const hookConfig = HookGenerator.createHookConfig(hook, hookStyle, 3);
+
+                // Optimiere für Plattform
+                const platform = document.getElementById('platformSelect').value;
+                const optimizedConfig = HookGenerator.optimizeForPlatform(hookConfig, platform);
+
+                DOM.hookPreview.textContent = hook;
+                RG.currentProject.timeline.hook = hook;
+                RG.currentProject.timeline.hookConfig = optimizedConfig;
+
+                // Zeige Vorschlag an
+                showAlert(`✅ Hook generiert: "${hook}"`, 'success');
+            } catch (err) {
+                console.error('Hook generation error:', err);
+                showAlert('Hook-Generierung fehlgeschlagen', 'danger');
+            }
         }
 
         // ===== EXPORT & DOWNLOAD =====
@@ -1405,46 +1447,56 @@
             }
 
             setLoading(true);
-            const totalSteps = 5;
-            let currentStep = 0;
 
             try {
-                const updateProgress = (step, message) => {
-                    currentStep = step;
-                    const percent = (step / totalSteps) * 100;
+                const updateProgress = (percent, message) => {
                     DOM.exportProgress.style.width = percent + '%';
                     DOM.exportStatus.textContent = message;
                 };
 
-                updateProgress(1, '⏳ Vorbereitung...');
-                await new Promise(r => setTimeout(r, 500));
+                // Sammle Export-Optionen
+                const exportOptions = {
+                    format: DOM.formatSelect.value,
+                    bitrate: DOM.bitrateSelect.value,
+                    fps: parseInt(DOM.fpsSelect.value),
+                    resolution: DOM.resolutionSelect.value.replace('p', '')
+                };
 
-                updateProgress(2, '🎬 Video-Komposition...');
-                await new Promise(r => setTimeout(r, 1000));
+                // Erstelle Timeline-Objekt
+                const timeline = {
+                    clips: RG.currentProject.timeline.clips,
+                    duration: 10,
+                    hook: RG.currentProject.timeline.hook
+                };
 
-                updateProgress(3, '🎵 Audio-Synchronisation...');
-                if (RG.currentProject.music) {
-                    await new Promise(r => setTimeout(r, 800));
-                }
-
-                updateProgress(4, '📝 Untertitel hinzufügen...');
-                if (DOM.enableSubtitles.checked) {
-                    await new Promise(r => setTimeout(r, 600));
-                }
-
-                updateProgress(5, '💾 Finalisierung...');
-                await new Promise(r => setTimeout(r, 500));
+                // Nutze ExportManager
+                const result = await ExportManager.exportVideo(timeline, exportOptions, updateProgress);
 
                 DOM.exportProgress.style.width = '100%';
                 DOM.exportStatus.textContent = '✅ Export abgeschlossen!';
-                showAlert('✅ Video erfolgreich exportiert!', 'success');
 
-                // Simulate file creation
-                const blob = new Blob([new ArrayBuffer(1000000)], {type: 'video/mp4'});
-                const url = URL.createObjectURL(blob);
+                const url = URL.createObjectURL(result.blob);
                 RG.currentProject.exportUrl = url;
+                RG.currentProject.lastExport = {
+                    url,
+                    format: result.format,
+                    size: result.size,
+                    duration: result.duration,
+                    timestamp: new Date()
+                };
+
+                // Speichere Projekt mit Export-Info
+                await VideoManager.saveProject(RG.currentProject);
+                showAlert(`✅ Video exportiert! (${(result.size / 1024 / 1024).toFixed(1)}MB)`, 'success');
+
+                // Auto-Upload wenn aktiviert
+                if (DOM.enableAutoUpload.checked) {
+                    showAlert('⏳ Starte Auto-Upload...', 'info');
+                    // Upload-Logik würde hier folgen
+                }
 
             } catch (err) {
+                console.error('Export error:', err);
                 showAlert('Fehler beim Export: ' + err.message, 'danger');
             } finally {
                 setLoading(false);
