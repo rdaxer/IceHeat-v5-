@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build
+dist/
+build/icons/*.png
+build/icons/*.ico
+
+# Electron
+electron-builder.json.bak
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# App Data (User Files)
+/userData
+%APPDATA%/IceHeat/
+
+# Temporary
+/tmp
+*.tmp
+
+# Logs
+logs/
+*.log

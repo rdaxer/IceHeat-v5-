@@ -1,0 +1,101 @@
+{
+  "name": "iceheat-desktop",
+  "version": "1.0.0",
+  "description": "Professional Video Reel & Eisspeedway Management Desktop App",
+  "main": "src/main/index.js",
+  "homepage": "./",
+  "author": "IceHeat Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder --win --publish never",
+    "build:release": "electron-builder --win --publish always",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win",
+    "lint": "eslint src/",
+    "test": "jest",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "electron-log": "^5.1.0",
+    "winreg": "^1.2.4"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.6.4",
+    "electron-updater": "^6.1.1",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.0",
+    "@types/electron": "^1.6.10",
+    "eslint": "^8.55.0",
+    "jest": "^29.7.0"
+  },
+  "build": {
+    "appId": "com.iceheat.desktop",
+    "productName": "IceHeat Desktop",
+    "files": [
+      "src/",
+      "reel/",
+      "index.html",
+      "manifest.json",
+      "service-worker.js",
+      "icon-192.png",
+      "icon-512.png",
+      "assets/",
+      "node_modules/"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "certificateFile": null,
+      "certificatePassword": null,
+      "certificateSha1": null,
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "IceHeat Desktop",
+      "installerIcon": "build/icons/setup.ico",
+      "uninstallerIcon": "build/icons/uninstall.ico",
+      "installerHeaderIcon": "build/icons/app.ico",
+      "installerSidebar": "build/installer-background.bmp",
+      "installerSidebarImage": "build/installer-background.bmp",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "${productName}-${version}-${os}-${arch}-installer.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-${os}-${arch}-portable.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "rdaxer",
+      "repo": "IceHeat-v5-",
+      "releaseName": "v${version}",
+      "releaseType": "release"
+    }
+  }
+}
