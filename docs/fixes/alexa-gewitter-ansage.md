@@ -51,14 +51,42 @@ Betroffene Automationen:
 - `automation.erdbeben_alexa_warnung`
 - `automation.rauchmelder_alexa_alarm` (sicherheitskritisch – gleicher Defekt)
 
-## Offener Punkt (Hardware/Netzwerk, nicht per Software behebbar)
+## Kritischer Blocker: YAML-Fehler in configuration.yaml
+
+**Status:** Die Automations-Fixes sind in der Datenbank korrekt gespeichert (verifiziert per `config_hash`), können aber **NICHT in die Runtime geladen werden**, weil ein YAML-Syntaxfehler die `automation.reload`-Aktion blockiert.
+
+**Fehlermeldung:**
+```
+mapping values are not allowed here
+in "/config/configuration.yaml", line 83, column 20
+```
+
+**Behebung erforderlich:**
+1. Öffne `/config/configuration.yaml` im Editor (nicht per HA UI – diese kann nicht geladen werden)
+2. Gehe zu Zeile 83
+3. Prüfe auf unquotierte Doppelpunkte (`:`) in Werten oder falsche Einrückung
+4. Typische Fehler:
+   - Wert mit `:` ohne Anführungszeichen: `key: value: with: colons`
+   - Sollte sein: `key: "value: with: colons"`
+5. Speichere die Datei
+6. **Starten Sie Home Assistant neu** oder verwenden Sie Developer Tools > Services > `automation.reload`
+
+**Nach dem Fix:**
+Alle vier Automationen werden automatisch mit der korrekten `notify.send_message`-Struktur geladen:
+- `automation.gewitter_fenster_auf_60_minuten_vorwarnung` (config_hash: 97bf39087ce6bdcf)
+- `automation.gewitter_fenster_auf_30_minuten_wiederholung` (config_hash: 011be1d760e24b91)
+- `automation.erdbeben_alexa_warnung`
+- `automation.rauchmelder_alexa_alarm`
+
+---
+
+## Zusätzlicher Punkt: Hardware/Netzwerk (nicht per Software behebbar)
 
 Die Echo-Entities (`media_player.ellis_echo_dot` sowie die zugehörigen
-`notify.*_durchsagen`) sind seit dem 27.06.2026 durchgehend `unavailable`,
-obwohl die Integration `alexa_devices` fehlerfrei geladen ist. Ein Reload der
-Integration hat die Geräte nicht zurückgeholt.
+`notify.*_durchsagen`) waren während der Behebung zeitweise `unavailable`,
+obwohl die Integration `alexa_devices` fehlerfrei geladen ist.
 
-Das deutet auf offline-Echo-Geräte hin. Bitte prüfen:
+Das deutet auf Netzwerk-/Hardware-Probleme hin. Bitte prüfen:
 
 1. Sind die Echo-Geräte eingeschaltet und mit dem WLAN verbunden?
 2. Funktionieren sie in der Alexa-App?
