@@ -35,7 +35,9 @@ Ansicht **„Übersicht"** (Typ `sections`, 3 Spalten) mit folgenden Abschnitten
 3. **🟢 Spotify** – Mushroom-Karte (grün) + Tile mit Wiedergabe- & Lautstärke-Feature.
 4. **🗣️ Alexa / Echo** – Raster aller Echo-Geräte als Mushroom-Karten.
 5. **📺 TV** – `media-control`-Karte für den Samsung TV.
-6. **⚡ Schnellsteuerung** – Buttons „Alles stoppen" / „Alles pausieren".
+6. **📊 Hörstatistik** – apexcharts-Timeline der Wiedergabe-Aktivität (24 h),
+   je eine Spur pro Player (Sonos, Spotify, Echo, TV). Füllt sich mit der Zeit.
+7. **⚡ Schnellsteuerung** – Buttons „Alles stoppen" / „Alles pausieren".
 
 Verwendete Karten: **built-in** `media-control`, `tile`, `button`, `grid` +
 **Mushroom** (`custom:mushroom-media-player-card`, bereits via HACS installiert).
