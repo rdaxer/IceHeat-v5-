@@ -40,7 +40,7 @@
     "installerIcon": "build/icons/setup.ico",
     "uninstallerIcon": "build/icons/uninstall.ico",
     "installerHeaderIcon": "build/icons/app.ico",
-    "installerSidebarImage": "build/installer-background.bmp",
+    "installerSidebar": "build/installer-background.bmp",
     "deleteAppDataOnUninstall": false,
     "artifactName": "${productName}-${version}-Setup.${ext}"
   },
@@ -50,8 +50,6 @@
   "publish": {
     "provider": "github",
     "owner": "rdaxer",
-    "repo": "IceHeat-v5-",
-    "releaseName": "v${version}",
-    "releaseType": "release"
+    "repo": "IceHeat-v5-"
   }
 }
