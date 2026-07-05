@@ -43,12 +43,33 @@ Damit funktioniert das Dashboard sofort ohne weitere Installation.
 
 ---
 
-## 🧩 Empfohlene HACS-Erweiterungen (optional, für mehr Komfort)
+## ✅ Bereits installiert & eingebaut
 
-Diese Community-Karten/Integrationen erweitern das Medien-Dashboard deutlich.
+Folgende Erweiterungen wurden per HACS installiert:
+
+| Erweiterung | Status | Im Dashboard |
+|---|---|---|
+| **Maxi Media Player** (`custom:maxi-media-player`) | ✅ installiert | Sonos-Abschnitt nutzt sie bereits |
+| **SpotifyPlus Card** (`custom:spotifyplus-card`) | ✅ installiert | wartet auf Integration (siehe unten) |
+| **SpotifyPlus Integration** (`spotifyplus`) | ✅ heruntergeladen | ⚠️ Setup nötig |
+
+### ⚠️ Nächste Schritte (manuell erforderlich)
+
+1. **Home Assistant neu starten** (Einstellungen → System → Neu starten), damit die
+   SpotifyPlus-**Integration** geladen wird.
+2. **Browser-Cache leeren** / Hard-Reload (Strg+Shift+R), damit die neuen Karten laden.
+3. **SpotifyPlus einrichten:** Einstellungen → Geräte & Dienste → *Integration
+   hinzufügen* → **SpotifyPlus** → mit Spotify-Konto verbinden.
+   Erfordert **Spotify Premium** (Spotify-Web-API-Zugang seit 2026).
+4. Danach im Spotify-Abschnitt die SpotifyPlus-Karte einbauen (Beispiel ganz unten).
+
+---
+
+## 🧩 Weitere empfohlene HACS-Erweiterungen (optional)
+
 Installation jeweils über **HACS → Frontend/Integration → Repository hinzufügen**.
 
-### 1. Maxi Media Player (Sonos-Nachfolger) — empfohlen für Sonos
+### 1. Maxi Media Player (Sonos-Nachfolger) — ✅ installiert
 - **Repo:** https://github.com/punxaphil/maxi-media-player
 - **Kategorie:** Dashboard (Lovelace)
 - **Kann:** Lautsprecher gruppieren/entgruppen, Favoriten & Media-Browser, Queue,
@@ -60,7 +81,7 @@ Installation jeweils über **HACS → Frontend/Integration → Repository hinzuf
 - **Kategorie:** Dashboard (Lovelace)
 - **Kann:** Sehr kompakte Karte, Speaker-Gruppierung, Kurzbefehl-Buttons, Spotify-tauglich.
 
-### 3. SpotifyPlus (Integration) + SpotifyPlus Card — für Power-Spotify
+### 3. SpotifyPlus (Integration) + SpotifyPlus Card — ✅ installiert (Setup nötig)
 - **Integration:** https://github.com/thlucas1/homeassistantcomponent_spotifyplus
 - **Karte:** https://github.com/thlucas1/spotifyplus_card
 - **Kann:** Spotify-Katalog durchsuchen, Favoriten (Alben/Playlists/Künstler/Podcasts),
