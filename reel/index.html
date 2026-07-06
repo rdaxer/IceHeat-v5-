@@ -1,0 +1,2504 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoReel Pro — Video für Social Media</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0ea5e9">
+    <meta name="mobile-web-app-capable" content="true">
+    <meta name="apple-mobile-web-app-capable" content="true">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="../icon-192.png">
+
+    <!-- Komplett offline: keine externen Fonts/Bibliotheken.
+         Analyse läuft lokal (Canvas), Export über die eingebaute
+         MediaRecorder-API. Kein CDN, kein Key, kein Internet nötig. -->
+
+    <style>
+        :root {
+            --ice: #0ea5e9;
+            --ice-dark: #0369a1;
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #22263a;
+            --border: #2e3350;
+            --text: #e8ecf4;
+            --muted: #6b7599;
+            --accent: #f59e0b;
+            --success: #16a34a;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ===== NAVIGATION ===== */
+        .navbar {
+            display: flex;
+            align-items: center;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            height: 48px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            gap: 16px;
+            padding: 0 16px;
+        }
+
+        .logo {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-weight: 900;
+            font-size: 18px;
+            letter-spacing: 2px;
+            color: var(--ice);
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 0;
+            flex: 1;
+            border-bottom: none;
+        }
+
+        .nav-tab {
+            padding: 0 16px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            color: var(--muted);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            height: 48px;
+        }
+
+        .nav-tab:hover {
+            color: var(--text);
+        }
+
+        .nav-tab.active {
+            color: var(--ice);
+            border-bottom-color: var(--ice);
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: none;
+            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--ice);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--ice-dark);
+        }
+
+        .btn-primary:disabled {
+            background: var(--muted);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #15803d;
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            color: var(--text);
+            border-color: var(--muted);
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 10px;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .page {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* ===== UPLOAD PAGE ===== */
+        .upload-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .upload-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .upload-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .upload-card h3 {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--ice);
+        }
+
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 150px;
+        }
+
+        .dropzone:hover {
+            border-color: var(--ice);
+            background: rgba(14, 165, 233, 0.05);
+        }
+
+        .dropzone.active {
+            border-color: var(--ice);
+            background: rgba(14, 165, 233, 0.1);
+        }
+
+        .dropzone-icon {
+            font-size: 32px;
+            opacity: 0.5;
+        }
+
+        .dropzone-text {
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .media-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .media-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: var(--surface2);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 11px;
+        }
+
+        .media-thumbnail {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            background: var(--bg);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .media-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .media-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .media-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .media-meta {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .media-remove {
+            cursor: pointer;
+            color: var(--danger);
+            font-weight: 700;
+        }
+
+        /* ===== SETTINGS PANEL ===== */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 12px;
+            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+            padding: 8px 12px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            border-color: var(--ice);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        /* ===== EDITOR PAGE ===== */
+        .editor-container {
+            display: flex;
+            gap: 12px;
+            flex: 1;
+            overflow: hidden;
+            padding: 12px;
+        }
+
+        .editor-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .preview-canvas {
+            background: #000;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            flex: 1;
+            min-height: 0;
+            max-height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .preview-canvas video {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            background: #000;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .timeline {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+        }
+
+        .timeline-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            height: 24px;
+        }
+
+        .timeline-track {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            height: 40px;
+            display: flex;
+            position: relative;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .timeline-clip {
+            background: linear-gradient(135deg, var(--ice), var(--ice-dark));
+            border: 1px solid var(--ice);
+            border-radius: 3px;
+            height: 100%;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 700;
+            user-select: none;
+        }
+
+        .timeline-clip:active {
+            cursor: grabbing;
+        }
+
+        .editor-sidebar {
+            width: 280px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--ice);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== MODAL ===== */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .modal-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--ice);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-bar {
+            height: 4px;
+            background: var(--surface2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--ice);
+            transition: width 0.2s;
+            width: 0%;
+        }
+
+        /* ===== ALERTS ===== */
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideIn 0.2s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-success {
+            background: rgba(22, 163, 74, 0.1);
+            border: 1px solid rgba(22, 163, 74, 0.3);
+            color: #4ade80;
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+
+        .alert-info {
+            background: rgba(14, 165, 233, 0.1);
+            border: 1px solid rgba(14, 165, 233, 0.3);
+            color: #38bdf8;
+        }
+
+        /* ===== LOADER ===== */
+        .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid var(--border);
+            border-top-color: var(--ice);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+
+        /* ===== UTILITIES ===== */
+        .mt-12 {
+            margin-top: 12px;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-muted {
+            color: var(--muted);
+        }
+
+        .gap-16 {
+            gap: 16px;
+        }
+    </style>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="logo">🎬 VideoReel <span style="color:var(--accent)">Pro</span></div>
+        <div class="nav-tabs">
+            <div class="nav-tab active" data-tab="upload">Upload</div>
+            <div class="nav-tab" data-tab="editor">Editor</div>
+            <div class="nav-tab" data-tab="settings">Einstellungen</div>
+            <div class="nav-tab" data-tab="export">Export</div>
+        </div>
+        <div class="nav-actions">
+            <button class="btn btn-ghost btn-sm" id="btnReset">Neues Projekt</button>
+            <button class="btn btn-primary btn-sm" id="btnSave">Speichern</button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTAINER -->
+    <div class="container">
+        <!-- UPLOAD PAGE -->
+        <div class="page active" id="page-upload">
+            <div class="upload-section">
+                <div class="upload-grid">
+                    <!-- VIDEO UPLOAD -->
+                    <div class="upload-card">
+                        <h3>📹 Video hochladen</h3>
+                        <div class="dropzone" id="videoDropzone">
+                            <div class="dropzone-icon">🎥</div>
+                            <div class="dropzone-text">
+                                Video oder GIF hier ablegen<br>
+                                oder klicken zum Auswählen<br>
+                                <small>Max 2GB, 720p+</small>
+                            </div>
+                        </div>
+                        <div class="media-list" id="videoList"></div>
+                        <input type="file" id="videoInput" accept="video/*,.gif" multiple>
+                    </div>
+
+                    <!-- MUSIC UPLOAD -->
+                    <div class="upload-card">
+                        <h3>🎵 Musik (optional)</h3>
+                        <div class="dropzone" id="musicDropzone">
+                            <div class="dropzone-icon">♪</div>
+                            <div class="dropzone-text">
+                                Musik-Datei hier ablegen<br>
+                                oder klicken zum Auswählen<br>
+                                <small>MP3, WAV, OGG</small>
+                            </div>
+                        </div>
+                        <div class="media-list" id="musicList"></div>
+                        <input type="file" id="musicInput" accept="audio/*" multiple>
+                    </div>
+
+                    <!-- IMAGE UPLOAD -->
+                    <div class="upload-card">
+                        <h3>🖼️ Bilder (optional)</h3>
+                        <div class="dropzone" id="imageDropzone">
+                            <div class="dropzone-icon">📷</div>
+                            <div class="dropzone-text">
+                                Bilder hier ablegen<br>
+                                oder klicken zum Auswählen<br>
+                                <small>PNG, JPG, WebP</small>
+                            </div>
+                        </div>
+                        <div class="media-list" id="imageList"></div>
+                        <input type="file" id="imageInput" accept="image/*" multiple>
+                    </div>
+
+                    <!-- QUICK SETTINGS -->
+                    <div class="upload-card">
+                        <h3>⚙️ Schnelleinstellungen</h3>
+                        <div class="form-group">
+                            <label class="form-label">Plattform</label>
+                            <select class="form-select" id="platformSelect">
+                                <option value="tiktok">TikTok (9:16 Hochformat)</option>
+                                <option value="instagram">Instagram Reel (9:16)</option>
+                                <option value="youtube">YouTube Short (9:16)</option>
+                                <option value="youtube-landscape">YouTube / Querformat (16:9)</option>
+                                <option value="twitter">Twitter/X (16:9 Querformat)</option>
+                                <option value="square">Quadrat (1:1)</option>
+                                <option value="instagram-feed">Instagram Feed (4:5)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hook-Stil</label>
+                            <select class="form-select" id="hookStyleSelect">
+                                <option value="neugier">🔍 Neugier (stärkster Hook)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="btnAnalyze" style="width: 100%; margin-top: 12px;">
+                            Jetzt analysieren
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDITOR PAGE -->
+        <div class="page" id="page-editor">
+            <div class="editor-container">
+                <div class="editor-main">
+                    <!-- PREVIEW AREA -->
+                    <div class="preview-canvas" id="previewCanvas">
+                        <div style="text-align: center; color: var(--muted);">
+                            <div style="font-size: 48px; margin-bottom: 8px;">📹</div>
+                            <div style="font-size: 12px;">Video Preview</div>
+                            <div style="font-size: 10px; margin-top: 4px; color: var(--border);">Laden Sie Videos hoch um zu beginnen</div>
+                        </div>
+                    </div>
+
+                    <!-- PLAYER CONTROLS -->
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn btn-ghost btn-sm" id="btnPlayPause">▶ Play</button>
+                        <button class="btn btn-primary btn-sm" id="btnPreviewReel">👁 Reel-Vorschau</button>
+                        <input type="range" id="currentTimeSlider" style="flex: 1; cursor: pointer;" min="0" max="100" value="0">
+                        <span style="font-size: 11px; color: var(--muted);">
+                            <span id="currentTime">0:00</span> / <span id="duration">0:00</span>
+                        </span>
+                    </div>
+                    <div id="reelInfo" style="font-size: 11px; color: var(--muted); margin-top: 4px;"></div>
+
+                    <!-- TIMELINE -->
+                    <div class="timeline">
+                        <div class="timeline-header">📊 Timeline</div>
+                        <div class="timeline-track" id="timelineTrack"></div>
+                    </div>
+                </div>
+
+                <!-- RIGHT SIDEBAR -->
+                <div class="editor-sidebar">
+                    <div class="sidebar-section">
+                        <div class="sidebar-title">🎣 Hook Generator</div>
+                        <button class="btn btn-primary" style="width: 100%;" id="btnGenerateHook">
+                            Hook vorschlagen
+                        </button>
+                        <input type="text" class="form-input" id="hookInput" placeholder="Hook-Text (editierbar)…"
+                            style="width:100%; margin-top:6px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px; font-size:12px;">
+                        <button class="btn btn-primary" style="width:100%; margin-top:6px; background:#7c3aed;" id="btnAiEnhance">✨ Mit KI verbessern (Claude)</button>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11px; color:var(--muted);">
+                            <span>Hook-Dauer:</span>
+                            <select class="form-select" id="hookDuration" style="flex:1;">
+                                <option value="2">2 Sek.</option>
+                                <option value="3" selected>3 Sek.</option>
+                                <option value="4">4 Sek.</option>
+                                <option value="5">5 Sek.</option>
+                            </select>
+                        </div>
+                        <div style="font-size: 10px; color: var(--muted); margin-top:4px;" id="hookPreview">
+                            Tipp: Vorschlagen klicken oder eigenen Text tippen.
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-title">🎵 Musik</div>
+                        <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnMusicSync">
+                            🥁 BPM erkennen
+                        </button>
+                        <div style="font-size: 10px; color: var(--muted); margin: 4px 0 8px;" id="bpmInfo">
+                            Musik: nicht geladen
+                        </div>
+                        <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:2px;">Musik-Lautstärke: <span id="musicVolLabel">80%</span></label>
+                        <input type="range" id="musicVolume" min="0" max="100" value="80" style="width:100%;">
+                        <label style="display:block; font-size:11px; color:var(--text); margin-top:8px;">
+                            <input type="checkbox" id="musicOnly" style="margin-right:6px;">
+                            Nur Musik (Video-Ton aus / komplett drüberlegen)
+                        </label>
+                        <label style="display:block; font-size:11px; color:var(--text); margin-top:4px;">
+                            <input type="checkbox" id="musicFade" checked style="margin-right:6px;">
+                            Musik ein-/ausblenden
+                        </label>
+                        <label style="display:block; font-size:11px; color:var(--text); margin-top:4px;">
+                            <input type="checkbox" id="beatSync" checked style="margin-right:6px;">
+                            🎵 Schnitte am Takt (BPM)
+                        </label>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-title">🎬 Reel-Länge</div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="number" id="reelLengthEditor" min="5" max="300" step="5" value="60"
+                                style="width:72px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:6px; font-size:12px;">
+                            <span style="font-size:11px; color:var(--muted);">Sekunden max.</span>
+                        </div>
+                        <div id="reelEstimate" style="font-size:10px; color:var(--muted); margin-top:6px;"></div>
+                        <p style="font-size:10px; color:var(--muted); margin-top:4px;">
+                            Viele gute Szenen werden automatisch gekürzt, damit möglichst viele
+                            Highlights aller Videos ins Reel passen – das macht es spannender.
+                        </p>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-title">📝 Szenen</div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;" id="sceneList">
+                            <div style="font-size: 10px; color: var(--muted);">Keine Szenen erkannt</div>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-title">✨ Effekte</div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxFilter">🌈 Filter: Aus</button>
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxTransition">✂️ Übergang (Fade): Aus</button>
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxText">📝 Text-Overlay</button>
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxSound">🔊 Ton ausblenden: Aus</button>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-title">📝 Untertitel (optional)</div>
+                        <label style="display:block; font-size: 11px; color: var(--text); margin-bottom: 6px;">
+                            <input type="checkbox" id="enableSubs" style="margin-right: 6px;">
+                            Untertitel einblenden
+                        </label>
+                        <textarea id="subsText" placeholder="Eine Zeile pro Untertitel…&#10;Wird gleichmäßig über das Reel verteilt."
+                            style="width:100%; min-height:70px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px; font-size:11px; resize:vertical;"></textarea>
+                        <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:6px;" id="btnAutoSubs">🎙️ Auto-Untertitel (Sprache)</button>
+                        <div style="font-size:10px; color:var(--muted); margin-top:4px;">
+                            Kurze Zeilen, werden unten eingebrannt. Auto: OpenAI-Whisper (Schlüssel in
+                            Einstellungen) transkribiert das Video – sonst Diktat per Browser-Spracherkennung.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS PAGE -->
+        <div class="page" id="page-settings">
+            <div style="overflow-y: auto; flex: 1; padding: 24px;">
+                <div style="max-width: 600px; margin: 0 auto;">
+                    <!-- EXPORT SETTINGS -->
+                    <div class="upload-card gap-16">
+                        <h3>📤 Export-Einstellungen</h3>
+                        <div class="settings-grid">
+                            <div class="form-group">
+                                <label class="form-label">Auflösung</label>
+                                <select class="form-select" id="resolutionSelect">
+                                    <option value="1080">1080p (bestes)</option>
+                                    <option value="720">720p (Standard)</option>
+                                    <option value="480">480p (schnell)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Format</label>
+                                <select class="form-select" id="formatSelect">
+                                    <option value="mp4">MP4 (beste Kompatibilität)</option>
+                                    <option value="webm">WebM (kleinere Größe)</option>
+                                    <option value="gif">GIF (Animation)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Bitrate</label>
+                                <select class="form-select" id="bitrateSelect">
+                                    <option value="3000">3000k (schnell)</option>
+                                    <option value="5000">5000k (Standard)</option>
+                                    <option value="8000">8000k (beste Qualität)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">FPS</label>
+                                <select class="form-select" id="fpsSelect">
+                                    <option value="24">24 FPS</option>
+                                    <option value="30" selected>30 FPS</option>
+                                    <option value="60">60 FPS</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBTITLE SETTINGS -->
+                    <div class="upload-card gap-16" style="margin-top: 20px;">
+                        <h3>📝 Untertitel-Einstellungen</h3>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="enableSubtitles" style="margin-right: 6px;">
+                                Untertitel automatisch hinzufügen
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Untertitel-Positionierung</label>
+                            <select class="form-select" id="subtitlePosition">
+                                <option value="bottom">Unten (Standard)</option>
+                                <option value="top">Oben</option>
+                                <option value="center">Zentriert</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Schriftgröße</label>
+                            <select class="form-select" id="subtitleSize">
+                                <option value="12">Klein (12px)</option>
+                                <option value="16" selected>Mittel (16px)</option>
+                                <option value="20">Groß (20px)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- METADATA SETTINGS -->
+                    <div class="upload-card gap-16" style="margin-top: 20px;">
+                        <h3>🏷️ Metadaten & Hashtags</h3>
+                        <div class="form-group">
+                            <label class="form-label">Titel</label>
+                            <input type="text" class="form-input" id="videoTitle" placeholder="Dein Reel-Titel">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Beschreibung</label>
+                            <textarea class="form-textarea" id="videoDescription" placeholder="Beschreibung für Social Media"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hashtags</label>
+                            <input type="text" class="form-input" id="hashtagsInput" placeholder="#reel #short #viral">
+                        </div>
+                        <button class="btn btn-ghost" id="btnSuggestHashtags">💡 Hashtag-Vorschläge</button>
+                    </div>
+
+                    <!-- KI (optional) -->
+                    <div class="upload-card gap-16" style="margin-top: 20px;">
+                        <h3>✨ KI-Veredelung (optional)</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-bottom: 10px;">
+                            Claude schaut sich die erkannten Szenen an und schlägt Hook, Beschreibung,
+                            Hashtags und die besten Szenen vor. Braucht einen eigenen Anthropic-API-Schlüssel.
+                        </p>
+                        <div class="form-group">
+                            <label class="form-label">Anthropic API-Schlüssel</label>
+                            <input type="password" class="form-input" id="anthropicKey" placeholder="sk-ant-…" autocomplete="off">
+                        </div>
+                        <div style="font-size: 10px; color: var(--muted); margin: -6px 0 10px;">
+                            ⚠️ Wird nur lokal im Browser gespeichert und direkt an Anthropic gesendet.
+                            Jeder Aufruf verbraucht Guthaben deines Kontos. Schlüssel:
+                            <span id="aiKeyStatus">nicht gesetzt</span>.
+                        </div>
+                        <button class="btn btn-ghost btn-sm" id="btnSaveKey">Claude-Schlüssel speichern</button>
+
+                        <div class="form-group" style="margin-top:14px;">
+                            <label class="form-label">OpenAI API-Schlüssel (für Auto-Untertitel / Whisper)</label>
+                            <input type="password" class="form-input" id="openaiKey" placeholder="sk-…" autocomplete="off">
+                        </div>
+                        <div style="font-size: 10px; color: var(--muted); margin: -6px 0 10px;">
+                            Optional – transkribiert das Video automatisch. Status:
+                            <span id="subKeyStatus">nicht gesetzt</span>.
+                        </div>
+                        <button class="btn btn-ghost btn-sm" id="btnSaveOpenaiKey">OpenAI-Schlüssel speichern</button>
+                    </div>
+
+                    <!-- UPLOAD SETTINGS -->
+                    <div class="upload-card gap-16" style="margin-top: 20px;">
+                        <h3>☁️ Auto-Upload</h3>
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="enableAutoUpload" style="margin-right: 6px;">
+                                Automatisch uploaden nach Export
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Zielplattform(en)</label>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <label style="display: flex; align-items: center; font-size: 12px;">
+                                    <input type="checkbox" class="platform-upload" value="tiktok"> TikTok
+                                </label>
+                                <label style="display: flex; align-items: center; font-size: 12px;">
+                                    <input type="checkbox" class="platform-upload" value="instagram"> Instagram
+                                </label>
+                                <label style="display: flex; align-items: center; font-size: 12px;">
+                                    <input type="checkbox" class="platform-upload" value="youtube"> YouTube
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXPORT PAGE -->
+        <div class="page" id="page-export">
+            <div style="display: flex; flex-direction: column; gap: 20px; padding: 24px; overflow-y: auto; flex: 1;">
+                <!-- STATUS -->
+                <div class="upload-card">
+                    <h3>📊 Export-Status</h3>
+                    <div id="exportStatus" style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">
+                        Bereit zum Exportieren
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="exportProgress" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- PREVIEW -->
+                <div class="upload-card">
+                    <h3>👁️ Vorschau</h3>
+                    <div style="background: #000; border-radius: 8px; aspect-ratio: 9 / 16; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; margin-bottom: 12px;">
+                        Vorschau wird angezeigt
+                    </div>
+                </div>
+
+                <!-- AUTO-REEL -->
+                <div class="upload-card" style="margin-bottom: 12px;">
+                    <h3>🎬 Auto-Reel</h3>
+                    <label style="display:block; font-size: 12px; color: var(--text); margin: 6px 0;">
+                        <input type="checkbox" id="reelMode" checked style="margin-right: 6px;">
+                        Nur die besten Szenen automatisch zusammenschneiden
+                    </label>
+                    <div style="display:flex; align-items:center; gap:8px; font-size: 12px; color: var(--muted);">
+                        <span>Maximale Länge:</span>
+                        <input type="number" id="reelLength" min="5" max="300" step="5" value="60"
+                            style="width:72px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:6px; font-size:12px;">
+                        <span>Sekunden (5–300)</span>
+                    </div>
+                    <p style="font-size: 10px; color: var(--muted); margin-top: 8px;">
+                        Beste Szenen aller Videos werden automatisch gekürzt & zusammengeschnitten.
+                        Ohne Auto-Reel wird das gesamte Video (bis 60 s) mit Hook exportiert.
+                    </p>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-primary" id="btnStartExport" style="flex: 1;">
+                        🚀 Jetzt exportieren
+                    </button>
+                    <button class="btn btn-ghost" id="btnDownloadVideo" style="flex: 1;">
+                        ⬇️ Herunterladen
+                    </button>
+                    <button class="btn btn-ghost" id="btnSaveAs" style="flex: 1;">
+                        💾 Speichern unter…
+                    </button>
+                </div>
+
+                <!-- FILMORA -->
+                <div class="upload-card" style="margin-top: 12px;">
+                    <h3>🎬 In Filmora bearbeiten</h3>
+                    <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">
+                        Übergibt das exportierte Video an Wondershare Filmora zum Import.
+                        (Filmora bietet keine offizielle Schnittstelle – der Import des MP4 ist der zuverlässige Weg.)
+                    </p>
+                    <label style="display:block; font-size: 11px; color: var(--muted); margin-bottom: 10px;">
+                        <input type="checkbox" id="enableWfp" style="margin-right: 6px;">
+                        Zusätzlich Filmora-Projektdatei (.wfp) erzeugen – experimentell
+                    </label>
+                    <button class="btn btn-ghost" id="btnOpenFilmora" style="width: 100%;" disabled>
+                        🎬 In Filmora öffnen
+                    </button>
+                </div>
+
+                <!-- SHARING -->
+                <div class="upload-card">
+                    <h3>📤 Hochladen</h3>
+                    <p style="font-size: 11px; color: var(--muted); margin-bottom: 12px;">
+                        Öffnet die Upload-Seite der Plattform (und lädt dein Video herunter, falls noch nicht geschehen). Dort das Video auswählen.
+                    </p>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="btn btn-ghost btn-sm" id="btnShareTiktok">TikTok</button>
+                        <button class="btn btn-ghost btn-sm" id="btnShareInstagram">Instagram</button>
+                        <button class="btn btn-ghost btn-sm" id="btnShareYoutube">YouTube</button>
+                        <button class="btn btn-ghost btn-sm" id="btnShareTwitter">Twitter/X</button>
+                    </div>
+                    <p style="font-size: 11px; color: var(--muted); margin: 14px 0 8px;">Weiter bearbeiten:</p>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="btn btn-ghost btn-sm" id="btnOpenCanva">🎨 In Canva optimieren</button>
+                    </div>
+                </div>
+
+                <!-- HISTORY -->
+                <div class="upload-card">
+                    <h3>📜 Projekte</h3>
+                    <div id="projectsList" style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="font-size: 11px; color: var(--muted);">Keine Projekte gespeichert</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div class="modal-backdrop" id="modalBackdrop">
+        <div class="modal" id="mainModal">
+            <h2 class="modal-title" id="modalTitle">Modal</h2>
+            <div class="modal-content" id="modalContent"></div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost btn-sm" id="btnModalCancel">Abbrechen</button>
+                <button class="btn btn-primary btn-sm" id="btnModalOk">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALERTS CONTAINER -->
+    <div id="alertsContainer" style="position: fixed; top: 60px; right: 16px; z-index: 150; display: flex; flex-direction: column; gap: 8px; max-width: 300px;"></div>
+
+    <!-- MODULE SCRIPTS -->
+    <script src="js/VideoManager.js"></script>
+    <script src="js/SceneAnalyzer.js"></script>
+    <script src="js/MusicSync.js"></script>
+    <script src="js/HookGenerator.js"></script>
+    <script src="js/ExportManager.js"></script>
+    <script src="js/SubtitleGenerator.js"></script>
+
+    <!-- API SCRIPTS (Electron integration) -->
+    <script src="api/update-api.js"></script>
+    <script src="api/tools-api.js"></script>
+    <script src="api/video-export-api.js"></script>
+    <script src="api/filmora-api.js"></script>
+    <script src="api/filmora-export-api.js"></script>
+    <script src="api/ai-enhance.js"></script>
+    <script src="api/subtitle-ai.js"></script>
+
+    <!-- MAIN SCRIPT -->
+    <script>
+        // ===== GLOBAL STATE =====
+        const RG = {
+            currentProject: {
+                id: Date.now(),
+                title: 'Neues Projekt',
+                videos: [],
+                images: [],
+                music: null,
+                timeline: {
+                    clips: [],
+                    duration: 0,
+                    hook: '',
+                    hookDuration: 3
+                },
+                effects: {
+                    filter: 'none',
+                    fade: false,
+                    textOverlay: '',
+                    audioFade: false
+                },
+                audio: {
+                    musicVolume: 0.8,
+                    keepVideoAudio: true,
+                    musicFadeIn: true,
+                    musicFadeOut: true,
+                    beatSync: true
+                },
+                subsEnabled: false,
+                subtitles: [],
+                reelLength: 60
+            },
+            settings: {
+                platform: 'tiktok',
+                hookStyle: 'action',
+                resolution: 1080,
+                format: 'mp4',
+                bitrate: 5000,
+                fps: 30,
+                enableSubtitles: true,
+                subtitlePosition: 'bottom',
+                subtitleSize: 16,
+                enableAutoUpload: false,
+                hashtags: []
+            },
+            ui: {
+                currentTab: 'upload',
+                isLoading: false,
+                isPlaying: false,
+                selectedClip: null
+            },
+            cache: {
+                scenes: [],
+                bpm: null,
+                beats: []
+            }
+        };
+
+        // ===== DOM ELEMENTS =====
+        const DOM = {
+            // Navbar
+            navTabs: document.querySelectorAll('.nav-tab'),
+            pages: document.querySelectorAll('.page'),
+            btnReset: document.getElementById('btnReset'),
+            btnSave: document.getElementById('btnSave'),
+
+            // Upload
+            videoDropzone: document.getElementById('videoDropzone'),
+            musicDropzone: document.getElementById('musicDropzone'),
+            imageDropzone: document.getElementById('imageDropzone'),
+            videoInput: document.getElementById('videoInput'),
+            musicInput: document.getElementById('musicInput'),
+            imageInput: document.getElementById('imageInput'),
+            videoList: document.getElementById('videoList'),
+            musicList: document.getElementById('musicList'),
+            imageList: document.getElementById('imageList'),
+            platformSelect: document.getElementById('platformSelect'),
+            hookStyleSelect: document.getElementById('hookStyleSelect'),
+            btnAnalyze: document.getElementById('btnAnalyze'),
+
+            // Editor
+            previewCanvas: document.getElementById('previewCanvas'),
+            btnPlayPause: document.getElementById('btnPlayPause'),
+            currentTimeSlider: document.getElementById('currentTimeSlider'),
+            currentTime: document.getElementById('currentTime'),
+            duration: document.getElementById('duration'),
+            timelineTrack: document.getElementById('timelineTrack'),
+            hookPreview: document.getElementById('hookPreview'),
+            btnGenerateHook: document.getElementById('btnGenerateHook'),
+            hookInput: document.getElementById('hookInput'),
+            hookDuration: document.getElementById('hookDuration'),
+            musicVolume: document.getElementById('musicVolume'),
+            musicVolLabel: document.getElementById('musicVolLabel'),
+            musicOnly: document.getElementById('musicOnly'),
+            musicFade: document.getElementById('musicFade'),
+            beatSync: document.getElementById('beatSync'),
+            btnAiEnhance: document.getElementById('btnAiEnhance'),
+            anthropicKey: document.getElementById('anthropicKey'),
+            btnSaveKey: document.getElementById('btnSaveKey'),
+            aiKeyStatus: document.getElementById('aiKeyStatus'),
+            openaiKey: document.getElementById('openaiKey'),
+            btnSaveOpenaiKey: document.getElementById('btnSaveOpenaiKey'),
+            subKeyStatus: document.getElementById('subKeyStatus'),
+            btnAutoSubs: document.getElementById('btnAutoSubs'),
+            btnPreviewReel: document.getElementById('btnPreviewReel'),
+            reelInfo: document.getElementById('reelInfo'),
+            btnMusicSync: document.getElementById('btnMusicSync'),
+            sceneList: document.getElementById('sceneList'),
+            btnFxFilter: document.getElementById('btnFxFilter'),
+            btnFxTransition: document.getElementById('btnFxTransition'),
+            btnFxText: document.getElementById('btnFxText'),
+            btnFxSound: document.getElementById('btnFxSound'),
+            enableSubs: document.getElementById('enableSubs'),
+            subsText: document.getElementById('subsText'),
+
+            // Settings
+            resolutionSelect: document.getElementById('resolutionSelect'),
+            formatSelect: document.getElementById('formatSelect'),
+            bitrateSelect: document.getElementById('bitrateSelect'),
+            fpsSelect: document.getElementById('fpsSelect'),
+            enableSubtitles: document.getElementById('enableSubtitles'),
+            subtitlePosition: document.getElementById('subtitlePosition'),
+            subtitleSize: document.getElementById('subtitleSize'),
+            videoTitle: document.getElementById('videoTitle'),
+            videoDescription: document.getElementById('videoDescription'),
+            hashtagsInput: document.getElementById('hashtagsInput'),
+            btnSuggestHashtags: document.getElementById('btnSuggestHashtags'),
+            enableAutoUpload: document.getElementById('enableAutoUpload'),
+
+            // Export
+            exportStatus: document.getElementById('exportStatus'),
+            exportProgress: document.getElementById('exportProgress'),
+            btnStartExport: document.getElementById('btnStartExport'),
+            btnDownloadVideo: document.getElementById('btnDownloadVideo'),
+            btnOpenFilmora: document.getElementById('btnOpenFilmora'),
+            enableWfp: document.getElementById('enableWfp'),
+            reelMode: document.getElementById('reelMode'),
+            reelLength: document.getElementById('reelLength'),
+            reelLengthEditor: document.getElementById('reelLengthEditor'),
+            reelEstimate: document.getElementById('reelEstimate'),
+            projectsList: document.getElementById('projectsList'),
+
+            // Modal
+            modalBackdrop: document.getElementById('modalBackdrop'),
+            mainModal: document.getElementById('mainModal'),
+            modalTitle: document.getElementById('modalTitle'),
+            modalContent: document.getElementById('modalContent'),
+            btnModalCancel: document.getElementById('btnModalCancel'),
+            btnModalOk: document.getElementById('btnModalOk'),
+
+            // Other
+            alertsContainer: document.getElementById('alertsContainer')
+        };
+
+        // ===== UTILITY FUNCTIONS =====
+        function showAlert(message, type = 'info') {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `<span>${message}</span>`;
+            DOM.alertsContainer.appendChild(alert);
+
+            setTimeout(() => {
+                alert.style.animation = 'slideIn 0.2s ease-out reverse';
+                setTimeout(() => alert.remove(), 200);
+            }, 3000);
+        }
+
+        function switchTab(tabName) {
+            // Hide all pages
+            DOM.pages.forEach(page => page.classList.remove('active'));
+            DOM.navTabs.forEach(tab => tab.classList.remove('active'));
+
+            // Show selected page
+            document.getElementById(`page-${tabName}`)?.classList.add('active');
+            document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
+
+            RG.ui.currentTab = tabName;
+
+            if (tabName === 'editor' && RG.currentProject.videos.length > 0) {
+                if (!PV.video) initPreview(); else refreshPreview();
+            }
+        }
+
+        function showModal(title, content, onOk = null) {
+            DOM.modalTitle.textContent = title;
+            DOM.modalContent.innerHTML = content;
+            DOM.modalBackdrop.classList.add('active');
+            DOM.btnModalOk.onclick = () => {
+                DOM.modalBackdrop.classList.remove('active');
+                onOk?.();
+            };
+        }
+
+        function closeModal() {
+            DOM.modalBackdrop.classList.remove('active');
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function setLoading(isLoading) {
+            RG.ui.isLoading = isLoading;
+            DOM.btnAnalyze.disabled = isLoading;
+            DOM.btnStartExport.disabled = isLoading;
+            if (isLoading) {
+                DOM.btnAnalyze.innerHTML = '<span class="loader"></span> Analysiere...';
+                DOM.btnStartExport.innerHTML = '<span class="loader"></span> Exportiere...';
+            } else {
+                DOM.btnAnalyze.innerHTML = 'Jetzt analysieren';
+                DOM.btnStartExport.innerHTML = '🚀 Jetzt exportieren';
+            }
+        }
+
+        // ===== FILE HANDLING =====
+        function setupDropZone(dropzone, input, fileType) {
+            const handler = (files) => {
+                Array.from(files).forEach(file => {
+                    if (validateFile(file, fileType)) {
+                        addMediaFile(file, fileType);
+                    }
+                });
+            };
+
+            dropzone.addEventListener('dragover', e => {
+                e.preventDefault();
+                dropzone.classList.add('active');
+            });
+
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('active');
+            });
+
+            dropzone.addEventListener('drop', e => {
+                e.preventDefault();
+                dropzone.classList.remove('active');
+                handler(e.dataTransfer.files);
+            });
+
+            dropzone.addEventListener('click', () => input.click());
+            input.addEventListener('change', e => handler(e.target.files));
+        }
+
+        function validateFile(file, type) {
+            const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+            if (file.size > maxSize) {
+                showAlert('Datei zu groß! Max 2GB.', 'danger');
+                return false;
+            }
+            return true;
+        }
+
+        function addMediaFile(file, type) {
+            const id = Date.now() + Math.random();
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const item = {
+                    id,
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    data: e.target.result,
+                    thumbnail: null
+                };
+
+                if (type === 'video') {
+                    RG.currentProject.videos.push(item);
+                    generateVideoThumbnail(item);
+                    renderMediaList('video');
+                } else if (type === 'music') {
+                    RG.currentProject.music = item;
+                    renderMediaList('music');
+                } else if (type === 'image') {
+                    RG.currentProject.images.push(item);
+                    renderMediaList('image');
+                }
+
+                showAlert(`${file.name} hinzugefügt!`, 'success');
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function generateVideoThumbnail(video) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const video_el = document.createElement('video');
+
+            video_el.onloadedmetadata = () => {
+                canvas.width = 40;
+                canvas.height = 40;
+                video_el.currentTime = 0.5;
+            };
+
+            video_el.onloadeddata = () => {
+                ctx.drawImage(video_el, 0, 0, canvas.width, canvas.height);
+                video.thumbnail = canvas.toDataURL();
+                renderMediaList('video');
+            };
+
+            video_el.src = URL.createObjectURL(new Blob([video.data], {type: video.type}));
+        }
+
+        function renderMediaList(type) {
+            let list, container, items;
+
+            if (type === 'video') {
+                container = DOM.videoList;
+                items = RG.currentProject.videos;
+            } else if (type === 'music') {
+                container = DOM.musicList;
+                items = RG.currentProject.music ? [RG.currentProject.music] : [];
+            } else {
+                container = DOM.imageList;
+                items = RG.currentProject.images;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="media-item">
+                    <div class="media-thumbnail">
+                        <img src="${item.thumbnail || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22%3E%3C/svg%3E'}" alt="">
+                    </div>
+                    <div class="media-info">
+                        <div class="media-name">${item.name}</div>
+                        <div class="media-meta">${(item.size / 1024 / 1024).toFixed(1)} MB</div>
+                    </div>
+                    <span class="media-remove" onclick="removeMedia('${type}', ${item.id})">✕</span>
+                </div>
+            `).join('') || '<div style="color: var(--muted); font-size: 11px;">Keine Datei hochgeladen</div>';
+        }
+
+        function removeMedia(type, id) {
+            if (type === 'video') {
+                RG.currentProject.videos = RG.currentProject.videos.filter(v => v.id !== id);
+            } else if (type === 'music') {
+                RG.currentProject.music = null;
+            } else if (type === 'image') {
+                RG.currentProject.images = RG.currentProject.images.filter(i => i.id !== id);
+            }
+            renderMediaList(type);
+        }
+
+        // ===== ANALYSIS & GENERATION =====
+        async function analyzeVideos() {
+            if (RG.currentProject.videos.length === 0) {
+                showAlert('Bitte laden Sie zuerst ein Video hoch!', 'danger');
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const vids = RG.currentProject.videos;
+                showAlert(`Analysiere ${vids.length} Video${vids.length > 1 ? 's' : ''} für beste Szenen…`, 'info');
+
+                // Alle Videos analysieren – Szenen aller Clips sammeln (mit Quell-Index)
+                const all = [];
+                const videoDurations = [];
+                for (let vi = 0; vi < vids.length; vi++) {
+                    const video = vids[vi];
+                    let scenes = [];
+                    try {
+                        scenes = await SceneAnalyzer.detectScenes(
+                            {data: video.data, type: video.type},
+                            {maxFrames: 50, histogramThreshold: 30}
+                        );
+                    } catch (e) { console.warn('Analyse Video ' + vi + ':', e); }
+                    let maxEnd = 0;
+                    scenes.forEach(scene => {
+                        maxEnd = Math.max(maxEnd, scene.endTime || 0);
+                        all.push({
+                            id: all.length,
+                            videoIndex: vi,
+                            startTime: scene.startTime,
+                            endTime: scene.endTime,
+                            duration: scene.duration,
+                            quality: scene.quality / 100,
+                            sharpness: scene.sharpness,
+                            motion: scene.motion,
+                            thumbnail: scene.thumbnail || null,
+                            selected: true
+                        });
+                    });
+                    videoDurations[vi] = maxEnd;
+                }
+                RG.cache.videoDurations = videoDurations;
+
+                if (all.length > 0) {
+                    // Beste zuerst (über alle Videos hinweg)
+                    RG.cache.scenes = all.sort((a, b) => b.quality - a.quality);
+                    const src = vids.length > 1 ? ` aus ${vids.length} Videos` : '';
+                    showAlert(`✅ ${all.length} Szenen${src} erkannt! Wähle/entferne sie im Editor.`, 'success');
+                } else {
+                    // Fallback: Demo-Szenen
+                    RG.cache.scenes = [
+                        {id: 0, startTime: 0, endTime: 3, quality: 0.95, duration: 3, selected: true},
+                        {id: 1, startTime: 5, endTime: 8, quality: 0.87, duration: 3, selected: true},
+                        {id: 2, startTime: 12, endTime: 15, quality: 0.92, duration: 3, selected: true}
+                    ];
+                    showAlert('✅ Szenen-Demo geladen!', 'info');
+                }
+
+                if (RG.currentProject.music) {
+                    await detectMusicBPM();
+                }
+
+                renderSceneList();
+                switchTab('editor');
+            } catch (err) {
+                console.error('Analysis error:', err);
+                showAlert('Fehler bei der Analyse: ' + err.message, 'danger');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function detectMusicBPM() {
+            if (!RG.currentProject.music) return;
+
+            try {
+                // Dekodiere Audio
+                const audioData = RG.currentProject.music.data;
+                const audioBuffer = await MusicSync.decodeAudio(audioData);
+
+                // Erkenne BPM mit MusicSync-Modul
+                const bpmData = await MusicSync.detectBPM(audioBuffer);
+                RG.cache.bpm = bpmData.bpm;
+                RG.cache.beats = bpmData.beats;
+
+                DOM.bpmInfo.textContent = `🎵 ${RG.currentProject.music.name} (${bpmData.bpm} BPM, ${(bpmData.confidence * 100).toFixed(0)}% sicher)`;
+
+                showAlert(`✅ BPM erkannt: ${bpmData.bpm}`, 'success');
+            } catch (err) {
+                console.error('BPM detection error:', err);
+                // Nicht blockieren: Standard-BPM setzen, damit Musik-Schnitt weiter geht
+                RG.cache.bpm = 120;
+                RG.cache.beats = [];
+                if (DOM.bpmInfo) DOM.bpmInfo.textContent = `🎵 ${RG.currentProject.music.name} (Standard 120 BPM)`;
+                showAlert('BPM nicht sicher erkannt – nutze 120 BPM.', 'info');
+            }
+        }
+
+        function renderSceneList() {
+            if (!RG.cache.scenes || !RG.cache.scenes.length) {
+                DOM.sceneList.innerHTML = '<div style="font-size:10px;color:var(--muted);">Keine Szenen erkannt</div>';
+                return;
+            }
+            const selCount = RG.cache.scenes.filter(s => s.selected !== false).length;
+            const selDur = RG.cache.scenes.filter(s => s.selected !== false)
+                .reduce((a, s) => a + (Number(s.endTime ?? s.end ?? 0) - Number(s.startTime ?? s.start ?? 0)), 0);
+            const head = `<div style="font-size:10px;color:var(--muted);margin-bottom:6px;">${selCount}/${RG.cache.scenes.length} gewählt · ~${selDur.toFixed(0)}s</div>`;
+            DOM.sceneList.innerHTML = head + RG.cache.scenes.map((scene, idx) => {
+                const start = Number(scene.startTime ?? scene.start ?? 0);
+                const end = Number(scene.endTime ?? scene.end ?? 0);
+                const quality = Number(scene.quality ?? 0);
+                const on = scene.selected !== false;
+                const thumb = scene.thumbnail
+                    ? `<img src="${scene.thumbnail}" style="width:44px;height:26px;object-fit:cover;border-radius:3px;flex-shrink:0;">`
+                    : `<div style="width:44px;height:26px;border-radius:3px;background:var(--bg);flex-shrink:0;"></div>`;
+                return `
+                <div class="scene-item" data-idx="${idx}" style="display:flex;align-items:center;gap:6px;background:var(--surface2);padding:5px;border-radius:4px;cursor:pointer;border:1px solid ${on ? 'var(--ice)' : 'var(--border)'};margin-bottom:4px;opacity:${on ? '1' : '0.5'};">
+                    <input type="checkbox" ${on ? 'checked' : ''} style="pointer-events:none;">
+                    ${thumb}
+                    <div style="flex:1;min-width:0;font-size:10px;">
+                        <div style="font-weight:700;color:var(--ice);">${(RG.currentProject.videos.length > 1 && scene.videoIndex != null) ? `Video ${scene.videoIndex + 1} · ` : ''}Szene ${idx + 1}</div>
+                        <div style="color:var(--muted);">${start.toFixed(1)}–${end.toFixed(1)}s · ${(quality * 100).toFixed(0)}%</div>
+                    </div>
+                </div>`;
+            }).join('');
+            DOM.sceneList.querySelectorAll('.scene-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const i = parseInt(el.dataset.idx);
+                    RG.cache.scenes[i].selected = RG.cache.scenes[i].selected === false;
+                    renderSceneList();
+                    if (typeof refreshPreview === 'function') refreshPreview();
+                });
+            });
+        }
+
+        async function generateHook() {
+            showAlert('Generiere Hook...', 'info');
+
+            const hookStyle = document.getElementById('hookStyleSelect').value;
+
+            try {
+                // Nutze HookGenerator-Modul
+                const hook = HookGenerator.generateHook(hookStyle);
+                const hookConfig = HookGenerator.createHookConfig(hook, hookStyle, 3);
+
+                // Optimiere für Plattform
+                const platform = document.getElementById('platformSelect').value;
+                const optimizedConfig = HookGenerator.optimizeForPlatform(hookConfig, platform);
+
+                if (DOM.hookInput) DOM.hookInput.value = hook;
+                RG.currentProject.timeline.hook = hook;
+                RG.currentProject.timeline.hookConfig = optimizedConfig;
+                if (PV.ctx) pvDraw();
+
+                // Zeige Vorschlag an
+                showAlert(`✅ Hook-Vorschlag: "${hook}" (editierbar)`, 'success');
+            } catch (err) {
+                console.error('Hook generation error:', err);
+                showAlert('Hook-Generierung fehlgeschlagen', 'danger');
+            }
+        }
+
+        // Wählt die besten Szenen aus und macht daraus zusammenhängende Segmente
+        // (chronologisch), bis die Ziel-Länge erreicht ist. Max. 3 Minuten.
+        // Gewünschte maximale Reel-Länge (Editor & Export-Feld synchron)
+        function getReelLength() {
+            const v = parseInt(DOM.reelLength && DOM.reelLength.value) ||
+                      parseInt(DOM.reelLengthEditor && DOM.reelLengthEditor.value) ||
+                      RG.currentProject.reelLength || 60;
+            return Math.min(300, Math.max(5, v));
+        }
+
+        // Zeigt im Editor, wie viele Highlight-Clips ins Reel passen
+        function updateReelEstimate() {
+            if (!DOM.reelEstimate) return;
+            if (!RG.cache.scenes || !RG.cache.scenes.length) { DOM.reelEstimate.textContent = ''; return; }
+            const segs = PV.segs && PV.segs.length ? PV.segs : null;
+            if (segs) {
+                const total = segs.reduce((s, x) => s + (x.end - x.start), 0);
+                const avg = total / segs.length;
+                DOM.reelEstimate.textContent = `≈ ${segs.length} Highlight-Clips · ~${total.toFixed(0)}s (Ø ${avg.toFixed(1)}s/Clip)`;
+            } else {
+                DOM.reelEstimate.textContent = '';
+            }
+        }
+
+        // videoDurations: Array (pro Video) | Zahl | undefined
+        function buildReelSegments(scenes, videoDurations, targetSec, beatSec) {
+            if (!scenes || !scenes.length) return [];
+            // Nur manuell ausgewählte Szenen (Standard: alle ausgewählt)
+            scenes = scenes.filter(s => s.selected !== false);
+            if (!scenes.length) return [];
+            targetSec = Math.min(Math.max(targetSec || 60, 5), 300);
+            const MINLEN = 1.5; // Mindestlänge pro Clip (keine Zuckungen)
+            const snap = (beatSec && beatSec > 0.05) ? beatSec : 0; // Takt-Schnitt
+
+            const durOf = (vi) => {
+                if (Array.isArray(videoDurations)) return videoDurations[vi] > 0 ? videoDurations[vi] : null;
+                return (isFinite(videoDurations) && videoDurations > 0) ? videoDurations : null;
+            };
+
+            // Pro-Clip-Maximum: adaptiv, damit möglichst VIELE gute Szenen reinpassen.
+            // Kürzere Reels → kürzere Clips; ~12 Highlights als Richtwert.
+            let perClipMax = Math.min(5, Math.max(MINLEN, targetSec / 12));
+            if (snap) perClipMax = Math.max(snap * 2, Math.round(perClipMax / snap) * snap);
+
+            // Jede Szene auf einen knackigen (mittigen) Ausschnitt kürzen.
+            let cands = scenes.map(s => {
+                const vi = Number(s.videoIndex || 0);
+                let a = Math.max(0, Number(s.startTime ?? s.start ?? 0));
+                let b = Number(s.endTime ?? s.end ?? a);
+                const d = durOf(vi);
+                if (d) b = Math.min(d, b);
+                const len = b - a;
+                if (len < MINLEN) return null; // zu kurz zum Zeigen
+                let clip = Math.min(len, perClipMax);
+                if (snap) clip = Math.min(len, Math.max(snap * 2, Math.round(clip / snap) * snap));
+                const mid = (a + b) / 2;
+                let ca = Math.max(a, mid - clip / 2);
+                let cb = Math.min(b, ca + clip);
+                ca = Math.max(a, cb - clip);
+                return { start: ca, end: cb, videoIndex: vi, quality: Number(s.quality ?? 0) };
+            }).filter(s => s && s.end - s.start >= MINLEN * 0.9);
+
+            // Beste zuerst wählen, bis Ziel-Länge erreicht
+            cands.sort((a, b) => b.quality - a.quality);
+            const chosen = [];
+            let total = 0;
+            for (const c of cands) {
+                const d = c.end - c.start;
+                if (total + d > targetSec && chosen.length) continue;
+                chosen.push(c);
+                total += d;
+                if (total >= targetSec) break;
+            }
+
+            // Nach Video gruppieren, darin chronologisch; angrenzende gleicher Quelle mergen
+            chosen.sort((a, b) => (a.videoIndex - b.videoIndex) || (a.start - b.start));
+            const merged = [];
+            for (const c of chosen) {
+                const last = merged[merged.length - 1];
+                if (last && last.videoIndex === c.videoIndex && c.start <= last.end + 0.1)
+                    last.end = Math.max(last.end, c.end);
+                else merged.push({ start: c.start, end: c.end, videoIndex: c.videoIndex });
+            }
+            return merged;
+        }
+
+        // ===== EXPORT & DOWNLOAD =====
+        async function startExport() {
+            if (RG.currentProject.videos.length === 0) {
+                showAlert('Keine Videos zum Exportieren!', 'danger');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const updateProgress = (percent, message) => {
+                    DOM.exportProgress.style.width = percent + '%';
+                    DOM.exportStatus.textContent = message;
+                };
+
+                // Sammle Export-Optionen
+                const exportOptions = {
+                    platform: DOM.platformSelect ? DOM.platformSelect.value : 'tiktok',
+                    format: DOM.formatSelect.value,
+                    bitrate: DOM.bitrateSelect.value,
+                    fps: parseInt(DOM.fpsSelect.value),
+                    resolution: DOM.resolutionSelect.value.replace('p', '')
+                };
+
+                // Auto-Reel (beste Szenen) oder ganzes Video?
+                const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
+                let result;
+                if (useReel) {
+                    const targetSec = getReelLength();
+                    const vidDurs = RG.cache.videoDurations || null;
+                    const beatSec = (RG.currentProject.music && RG.cache.bpm && (RG.currentProject.audio || {}).beatSync !== false) ? 60 / RG.cache.bpm : null;
+                    const segments = buildReelSegments(RG.cache.scenes, vidDurs, targetSec, beatSec);
+                    if (!segments.length) {
+                        showAlert('Keine geeigneten Szenen – exportiere ganzes Video.', 'info');
+                        result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
+                    } else {
+                        showAlert(`🎬 Baue Auto-Reel aus ${segments.length} Top-Szenen…`, 'info');
+                        result = await ExportManager.exportReel(RG.currentProject, segments, exportOptions, updateProgress);
+                    }
+                } else {
+                    result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
+                }
+
+                DOM.exportProgress.style.width = '100%';
+                DOM.exportStatus.textContent = '✅ Export abgeschlossen!';
+
+                const url = URL.createObjectURL(result.blob);
+                RG.currentProject.exportUrl = url;
+                RG.lastExportBlob = result.blob;
+                RG.currentProject.lastExport = {
+                    url,
+                    format: result.format,
+                    size: result.size,
+                    duration: result.duration,
+                    timestamp: new Date()
+                };
+
+                // Filmora-Button freischalten
+                if (DOM.btnOpenFilmora) DOM.btnOpenFilmora.disabled = false;
+
+                // Speichere Projekt mit Export-Info
+                await VideoManager.saveProject(RG.currentProject);
+                showAlert(`✅ Video exportiert! (${(result.size / 1024 / 1024).toFixed(1)}MB, ${result.format.toUpperCase()})`, 'success');
+
+                // Auto-Upload wenn aktiviert
+                if (DOM.enableAutoUpload.checked) {
+                    showAlert('⏳ Starte Auto-Upload...', 'info');
+                    // Upload-Logik würde hier folgen
+                }
+
+            } catch (err) {
+                console.error('Export error:', err);
+                showAlert('Fehler beim Export: ' + err.message, 'danger');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function downloadVideo() {
+            if (!RG.currentProject.exportUrl) {
+                showAlert('Exportieren Sie zuerst ein Video!', 'danger');
+                return;
+            }
+
+            const ext = (RG.currentProject.lastExport && RG.currentProject.lastExport.format) || 'webm';
+            const a = document.createElement('a');
+            a.href = RG.currentProject.exportUrl;
+            a.download = `videoreel-${RG.currentProject.id}.${ext}`;
+            a.click();
+            showAlert('✅ Download gestartet!', 'success');
+        }
+
+        // ===== EVENT LISTENERS =====
+        // Navigation
+        DOM.navTabs.forEach(tab => {
+            tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+        });
+
+        DOM.btnReset.addEventListener('click', () => {
+            if (confirm('Wirrklich ein neues Projekt starten?')) {
+                RG.currentProject = {
+                    id: Date.now(),
+                    title: 'Neues Projekt',
+                    videos: [],
+                    images: [],
+                    music: null,
+                    timeline: { clips: [], duration: 0 }
+                };
+                RG.cache.scenes = [];
+                renderMediaList('video');
+                renderMediaList('music');
+                renderMediaList('image');
+                showAlert('✅ Neues Projekt erstellt!', 'success');
+            }
+        });
+
+        // File uploads
+        setupDropZone(DOM.videoDropzone, DOM.videoInput, 'video');
+        setupDropZone(DOM.musicDropzone, DOM.musicInput, 'music');
+        setupDropZone(DOM.imageDropzone, DOM.imageInput, 'image');
+
+        // Settings sync
+        DOM.platformSelect.addEventListener('change', (e) => {
+            RG.settings.platform = e.target.value;
+        });
+
+        DOM.hookStyleSelect.addEventListener('change', (e) => {
+            RG.settings.hookStyle = e.target.value;
+        });
+
+        DOM.resolutionSelect.addEventListener('change', (e) => {
+            RG.settings.resolution = parseInt(e.target.value);
+        });
+
+        DOM.formatSelect.addEventListener('change', (e) => {
+            RG.settings.format = e.target.value;
+        });
+
+        DOM.bitrateSelect.addEventListener('change', (e) => {
+            RG.settings.bitrate = parseInt(e.target.value);
+        });
+
+        DOM.fpsSelect.addEventListener('change', (e) => {
+            RG.settings.fps = parseInt(e.target.value);
+        });
+
+        DOM.enableSubtitles.addEventListener('change', (e) => {
+            RG.settings.enableSubtitles = e.target.checked;
+        });
+
+        // Hook-Stile aus der Bibliothek befüllen
+        (function populateHookStyles() {
+            const sel = document.getElementById('hookStyleSelect');
+            if (sel && typeof HookGenerator !== 'undefined' && HookGenerator.getStyles) {
+                sel.innerHTML = HookGenerator.getStyles()
+                    .map(s => `<option value="${s.value}">${s.label}</option>`).join('');
+            }
+        })();
+
+        // Analysis & Export
+        DOM.btnAnalyze.addEventListener('click', analyzeVideos);
+        DOM.btnGenerateHook.addEventListener('click', generateHook);
+        DOM.btnMusicSync.addEventListener('click', detectMusicBPM);
+        DOM.btnStartExport.addEventListener('click', startExport);
+        DOM.btnDownloadVideo.addEventListener('click', downloadVideo);
+        const btnSaveAs = document.getElementById('btnSaveAs');
+        if (btnSaveAs) btnSaveAs.addEventListener('click', saveVideoAs);
+        if (DOM.btnOpenFilmora) DOM.btnOpenFilmora.addEventListener('click', openInFilmora);
+
+        // Speichern unter … – Zielordner wählen (Electron-Dialog, sonst
+        // Datei-Auswahl des Browsers, sonst normaler Download)
+        async function saveVideoAs() {
+            if (!RG.lastExportBlob) { showAlert('Bitte zuerst exportieren.', 'danger'); return; }
+            const ext = (RG.currentProject.lastExport && RG.currentProject.lastExport.format) || 'webm';
+            const name = `videoreel-${RG.currentProject.id}.${ext}`;
+            try {
+                if (window.electron && window.electron.fs) {
+                    const buf = await RG.lastExportBlob.arrayBuffer();
+                    const r = await window.electron.fs.saveBuffer(name, buf);
+                    if (r && r.saved) showAlert('✅ Gespeichert: ' + r.path, 'success');
+                    return;
+                }
+                if (window.showSaveFilePicker) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: name,
+                        types: [{ description: 'Video', accept: { ['video/' + ext]: ['.' + ext] } }]
+                    });
+                    const w = await handle.createWritable();
+                    await w.write(RG.lastExportBlob);
+                    await w.close();
+                    showAlert('✅ Gespeichert: ' + handle.name, 'success');
+                    return;
+                }
+                downloadVideo();
+            } catch (err) {
+                if (err && err.name === 'AbortError') return;
+                console.error('SaveAs failed:', err);
+                downloadVideo();
+            }
+        }
+
+        // ===== LIVE-VORSCHAU (WYSIWYG auf Canvas) =====
+        // Zeigt genau das, was exportiert wird: gewählte Szenen, Format/Seitenverhältnis,
+        // Filter, Hook, Text-Overlay, Untertitel und Fade – live und auch im Standbild.
+        const CSS_FILTERS = {
+            none:    { label: 'Aus',      css: 'none' },
+            vivid:   { label: 'Vivid',    css: 'saturate(1.5) contrast(1.1)' },
+            warm:    { label: 'Warm',     css: 'sepia(0.35) saturate(1.3)' },
+            cool:    { label: 'Cool',     css: 'hue-rotate(-15deg) saturate(1.2) brightness(1.05)' },
+            bw:      { label: 'S/W',      css: 'grayscale(1) contrast(1.1)' },
+            vintage: { label: 'Vintage',  css: 'sepia(0.5) contrast(0.9) brightness(1.05)' }
+        };
+
+        function fmtTime(t) {
+            t = Math.max(0, Math.floor(t || 0));
+            const m = Math.floor(t / 60), s = t % 60;
+            return `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        const PV = { video: null, canvas: null, ctx: null, music: null, segs: [], idx: 0, playing: false, raf: 0, elapsed: 0, total: 0, last: 0, seeking: false, vidUrls: [], curVid: -1 };
+
+        // Blob-URL für ein bestimmtes Quell-Video (mehrere Clips möglich)
+        function pvVideoUrl(vi) {
+            const vids = RG.currentProject.videos || [];
+            const v = vids[vi] || vids[0];
+            if (!v) return null;
+            if (!PV.vidUrls[vi]) {
+                const blob = v.data instanceof Blob ? v.data : new Blob([v.data], { type: v.type || 'video/mp4' });
+                PV.vidUrls[vi] = URL.createObjectURL(blob);
+            }
+            return PV.vidUrls[vi];
+        }
+        // Wechselt die Vorschau-Quelle, wenn ein Segment aus einem anderen Video kommt
+        function pvEnsureVideo(vi) {
+            vi = vi || 0;
+            return new Promise(res => {
+                if (PV.curVid === vi && PV.video.src) return res();
+                const url = pvVideoUrl(vi);
+                if (!url) return res();
+                const on = () => { PV.video.removeEventListener('loadedmetadata', on); PV.curVid = vi; res(); };
+                PV.video.addEventListener('loadedmetadata', on);
+                PV.video.src = url;
+                try { PV.video.load(); } catch (e) {}
+            });
+        }
+        // Springt zu Segment idx (inkl. Quell-Wechsel) und spielt ggf. weiter
+        async function pvGoto(idx) {
+            if (!PV.segs.length) return;
+            PV.seeking = true; PV.idx = idx;
+            const seg = PV.segs[idx];
+            await pvEnsureVideo(seg.videoIndex || 0);
+            await pvSeek(seg.start);
+            if (PV.playing) {
+                const a = RG.currentProject.audio || {};
+                PV.video.muted = (a.keepVideoAudio === false);
+                try { await PV.video.play(); } catch (e) {}
+            }
+            PV.seeking = false; PV.last = performance.now();
+        }
+
+        function pvAspect() {
+            const s = String((DOM.platformSelect && DOM.platformSelect.value) || 'tiktok').toLowerCase();
+            if (s.includes('1:1') || s.includes('square') || s.includes('quadrat')) return [1, 1];
+            if (s.includes('4:5') || s.includes('feed')) return [4, 5];
+            if (s.includes('16:9') || s.includes('landscape') || s.includes('quer') || s === 'twitter') return [16, 9];
+            return [9, 16];
+        }
+
+        function pvBuildSegs() {
+            const dur = (PV.video && isFinite(PV.video.duration) && PV.video.duration) || 60;
+            const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
+            const target = getReelLength();
+            const vidDurs = RG.cache.videoDurations || null;
+            const beatSec = (RG.currentProject.music && RG.cache.bpm && (RG.currentProject.audio || {}).beatSync !== false) ? 60 / RG.cache.bpm : null;
+            let segs = useReel ? buildReelSegments(RG.cache.scenes, vidDurs, target, beatSec) : [{ start: 0, end: Math.min(dur, 60), videoIndex: 0 }];
+            if (!segs.length) segs = [{ start: 0, end: Math.min(dur, 60), videoIndex: 0 }];
+            return segs;
+        }
+
+        function pvDrawText(text, cyFactor, sizeFactor) {
+            const ctx = PV.ctx, W = PV.canvas.width, H = PV.canvas.height;
+            const fs = Math.max(14, Math.round(W * sizeFactor));
+            ctx.font = `900 ${fs}px 'Segoe UI', system-ui, Arial, sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const words = String(text).split(/\s+/), lines = []; let cur = '';
+            for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > W * 0.86 && cur) { lines.push(cur); cur = w; } else cur = t; }
+            if (cur) lines.push(cur);
+            lines.slice(0, 3).forEach((ln, i) => {
+                const y = H * cyFactor + i * fs * 1.15;
+                ctx.lineWidth = fs * 0.18; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(ln, W / 2, y);
+                ctx.fillStyle = '#fff'; ctx.fillText(ln, W / 2, y);
+            });
+        }
+
+        function pvDraw() {
+            if (!PV.ctx || !PV.video) return;
+            const ctx = PV.ctx, W = PV.canvas.width, H = PV.canvas.height, v = PV.video;
+            const fx = RG.currentProject.effects || {};
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+            const vw = v.videoWidth || W, vh = v.videoHeight || H, scale = Math.max(W / vw, H / vh), dw = vw * scale, dh = vh * scale;
+            ctx.filter = (CSS_FILTERS[fx.filter] || CSS_FILTERS.none).css;
+            try { ctx.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch (e) {}
+            ctx.filter = 'none';
+            const hook = (RG.currentProject.timeline && RG.currentProject.timeline.hook) || '';
+            const hookDur = (RG.currentProject.timeline && RG.currentProject.timeline.hookDuration) || 3;
+            if (hook && PV.elapsed < hookDur) pvDrawText(hook, 0.22, 0.075);
+            if (fx.textOverlay) pvDrawText(fx.textOverlay, 0.85, 0.05);
+            if (RG.currentProject.subsEnabled && Array.isArray(RG.currentProject.subtitles) && RG.currentProject.subtitles.length && PV.total) {
+                const subs = RG.currentProject.subtitles, ld = PV.total / subs.length;
+                const line = subs[Math.min(subs.length - 1, Math.floor(PV.elapsed / ld))];
+                if (line) pvDrawText(line, 0.92, 0.042);
+            }
+            // Fade nur während des Abspielens zeigen – im Standbild würde der
+            // Anfangs-Fade sonst alles schwarz machen (dann sieht man kein Overlay).
+            if (fx.fade && PV.playing) {
+                let a = 0;
+                if (PV.elapsed < 0.5) a = 1 - PV.elapsed / 0.5;
+                else if (PV.elapsed > PV.total - 0.5) a = (PV.elapsed - (PV.total - 0.5)) / 0.5;
+                if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a)})`; ctx.fillRect(0, 0, W, H); }
+            }
+            if (DOM.currentTime) DOM.currentTime.textContent = fmtTime(PV.elapsed);
+            if (DOM.duration) DOM.duration.textContent = fmtTime(PV.total);
+            if (DOM.currentTimeSlider && PV.total) DOM.currentTimeSlider.value = Math.min(100, (PV.elapsed / PV.total) * 100);
+        }
+
+        function pvSeek(t) {
+            return new Promise(res => { const on = () => { PV.video.removeEventListener('seeked', on); res(); }; PV.video.addEventListener('seeked', on); try { PV.video.currentTime = t; } catch (e) { res(); } });
+        }
+
+        function pvLoop() {
+            if (PV.video) {
+                if (PV.playing && !PV.seeking) {
+                    const now = performance.now(); PV.elapsed = Math.min(PV.total, PV.elapsed + (now - PV.last) / 1000); PV.last = now;
+                    const seg = PV.segs[PV.idx];
+                    if (seg && (PV.video.currentTime >= seg.end - 0.03 || PV.video.ended)) {
+                        const next = PV.idx + 1;
+                        if (next >= PV.segs.length) { PV.elapsed = 0; pvGoto(0); }
+                        else pvGoto(next);
+                    }
+                }
+                pvDraw();
+            }
+            PV.raf = requestAnimationFrame(pvLoop);
+        }
+
+        function pvSetCanvasSize() {
+            const [aw, ah] = pvAspect(), H = 540;
+            PV.canvas.height = H; PV.canvas.width = Math.round(H * aw / ah);
+            PV.canvas.style.maxWidth = '100%'; PV.canvas.style.maxHeight = '100%';
+            PV.canvas.style.width = 'auto'; PV.canvas.style.height = 'auto';
+        }
+
+        function initPreview() {
+            const video = RG.currentProject.videos[0];
+            if (!video) return;
+            if (!PV.canvas || !DOM.previewCanvas.contains(PV.canvas)) {
+                DOM.previewCanvas.innerHTML = '';
+                PV.video = document.createElement('video');
+                PV.video.setAttribute('playsinline', ''); PV.video.preload = 'auto'; PV.video.style.display = 'none';
+                PV.canvas = document.createElement('canvas');
+                PV.canvas.style.borderRadius = '8px'; PV.canvas.style.background = '#000';
+                DOM.previewCanvas.appendChild(PV.video);
+                DOM.previewCanvas.appendChild(PV.canvas);
+                PV.ctx = PV.canvas.getContext('2d');
+                pvSetCanvasSize();
+                if (!PV.raf) PV.raf = requestAnimationFrame(pvLoop);
+            }
+            // Quell-URLs neu aufbauen (Videos können sich geändert haben)
+            PV.vidUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+            PV.vidUrls = []; PV.curVid = -1;
+            // Erstes Video laden, dann Vorschau bauen
+            pvEnsureVideo(0).then(() => refreshPreview());
+
+            // Musik für die Vorschau (hörbar mit eingestellter Lautstärke)
+            if (RG.currentProject.music) {
+                if (!PV.music) { PV.music = document.createElement('audio'); PV.music.loop = true; PV.music.style.display = 'none'; DOM.previewCanvas.appendChild(PV.music); }
+                const mb = RG.currentProject.music.data instanceof Blob ? RG.currentProject.music.data : new Blob([RG.currentProject.music.data], { type: RG.currentProject.music.type || 'audio/mpeg' });
+                PV.music.src = URL.createObjectURL(mb);
+            }
+        }
+
+        // Baut Segmente/Format neu aus den aktuellen Einstellungen und zeigt ein Standbild
+        async function refreshPreview() {
+            if (!PV.video) return;
+            pvSetCanvasSize();
+            PV.segs = pvBuildSegs();
+            PV.total = PV.segs.reduce((s, x) => s + (x.end - x.start), 0);
+            PV.idx = 0; PV.elapsed = 0;
+            updateReelEstimate();
+            if (DOM.reelInfo) DOM.reelInfo.textContent = `Vorschau: ${PV.segs.length} Szene(n) · ~${PV.total.toFixed(0)}s · ${pvAspect().join(':')}`;
+            PV.seeking = true; await pvEnsureVideo(PV.segs[0].videoIndex || 0); await pvSeek(PV.segs[0].start); PV.seeking = false; PV.last = performance.now();
+            pvDraw();
+        }
+
+        function pvPlay() {
+            if (!PV.video) return;
+            PV.playing = true; PV.last = performance.now();
+            const a = RG.currentProject.audio || {};
+            PV.video.muted = (a.keepVideoAudio === false);
+            try { PV.video.play(); } catch (e) {}
+            if (PV.music) {
+                PV.music.volume = (a.musicVolume != null ? a.musicVolume : 0.8);
+                try { PV.music.currentTime = 0; PV.music.play(); } catch (e) {}
+            }
+            DOM.btnPlayPause.textContent = '⏸ Pause';
+            if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '⏹ Vorschau stoppen';
+        }
+        function pvPause() {
+            PV.playing = false;
+            if (PV.video) { try { PV.video.pause(); } catch (e) {} }
+            if (PV.music) { try { PV.music.pause(); } catch (e) {} }
+            DOM.btnPlayPause.textContent = '▶ Play';
+            if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '👁 Reel-Vorschau';
+        }
+
+        function togglePlay() {
+            if (!PV.video) { showAlert('Bitte zuerst ein Video laden.', 'danger'); return; }
+            if (PV.playing) pvPause(); else pvPlay();
+        }
+
+        DOM.btnPlayPause.addEventListener('click', togglePlay);
+        DOM.currentTimeSlider.addEventListener('input', async (e) => {
+            if (!PV.segs.length || !PV.total) return;
+            pvPause();
+            PV.elapsed = (e.target.value / 100) * PV.total;
+            let acc = 0, idx = 0, tIn = 0;
+            for (let i = 0; i < PV.segs.length; i++) {
+                const d = PV.segs[i].end - PV.segs[i].start;
+                if (PV.elapsed <= acc + d || i === PV.segs.length - 1) { idx = i; tIn = PV.elapsed - acc; break; }
+                acc += d;
+            }
+            PV.idx = idx; PV.seeking = true; await pvEnsureVideo(PV.segs[idx].videoIndex || 0); await pvSeek(PV.segs[idx].start + Math.max(0, tIn)); PV.seeking = false; pvDraw();
+        });
+
+        // ===== EFFEKTE =====
+        DOM.btnFxFilter.addEventListener('click', () => {
+            const keys = Object.keys(CSS_FILTERS);
+            const cur = RG.currentProject.effects.filter || 'none';
+            const next = keys[(keys.indexOf(cur) + 1) % keys.length];
+            RG.currentProject.effects.filter = next;
+            DOM.btnFxFilter.textContent = '🌈 Filter: ' + CSS_FILTERS[next].label;
+            if (PV.ctx) pvDraw();
+        });
+        DOM.btnFxTransition.addEventListener('click', () => {
+            const on = !RG.currentProject.effects.fade;
+            RG.currentProject.effects.fade = on;
+            DOM.btnFxTransition.textContent = '✂️ Übergang (Fade): ' + (on ? 'An' : 'Aus');
+            if (typeof refreshPreview === 'function') refreshPreview();
+            showAlert(on ? 'Ein-/Ausblenden – im Abspielen sichtbar.' : 'Übergang aus.', 'info');
+        });
+        DOM.btnFxText.addEventListener('click', () => {
+            const txt = prompt('Text-Overlay (unten im Video):', RG.currentProject.effects.textOverlay || '');
+            if (txt === null) return;
+            RG.currentProject.effects.textOverlay = txt;
+            DOM.btnFxText.textContent = txt ? '📝 Text: ' + txt.slice(0, 14) : '📝 Text-Overlay';
+            if (PV.ctx) pvDraw();
+            showAlert(txt ? 'Text-Overlay gesetzt (in der Vorschau sichtbar).' : 'Text-Overlay entfernt.', 'info');
+        });
+        DOM.btnFxSound.addEventListener('click', () => {
+            const on = !RG.currentProject.effects.audioFade;
+            RG.currentProject.effects.audioFade = on;
+            DOM.btnFxSound.textContent = '🔊 Ton ausblenden: ' + (on ? 'An' : 'Aus');
+        });
+
+        // Hook editierbar: Eingabe übernimmt sofort in die Timeline + Vorschau
+        if (DOM.hookInput) {
+            DOM.hookInput.addEventListener('input', (e) => {
+                RG.currentProject.timeline.hook = e.target.value;
+                if (PV.ctx) pvDraw();
+            });
+        }
+
+        // Format / Reel-Länge / Auto-Reel ändern -> Vorschau neu aufbauen
+        if (DOM.platformSelect) DOM.platformSelect.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
+        // Reel-Länge: Editor- und Export-Feld synchron halten
+        function applyReelLength(val, from) {
+            let v = Math.min(300, Math.max(5, parseInt(val) || 60));
+            RG.currentProject.reelLength = v;
+            if (DOM.reelLength && from !== 'export') DOM.reelLength.value = v;
+            if (DOM.reelLengthEditor && from !== 'editor') DOM.reelLengthEditor.value = v;
+            if (typeof refreshPreview === 'function') refreshPreview();
+        }
+        if (DOM.reelLength) DOM.reelLength.addEventListener('change', (e) => applyReelLength(e.target.value, 'export'));
+        if (DOM.reelLengthEditor) DOM.reelLengthEditor.addEventListener('change', (e) => applyReelLength(e.target.value, 'editor'));
+        if (DOM.reelMode) DOM.reelMode.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
+
+        // Hook-Dauer
+        if (DOM.hookDuration) DOM.hookDuration.addEventListener('change', (e) => {
+            RG.currentProject.timeline.hookDuration = parseInt(e.target.value) || 3;
+            if (PV.ctx) pvDraw();
+        });
+
+        // Musik: Lautstärke / nur Musik / Fade / Takt
+        if (DOM.musicVolume) DOM.musicVolume.addEventListener('input', (e) => {
+            const v = (parseInt(e.target.value) || 0) / 100;
+            RG.currentProject.audio.musicVolume = v;
+            if (DOM.musicVolLabel) DOM.musicVolLabel.textContent = Math.round(v * 100) + '%';
+            if (PV.music) PV.music.volume = v;
+        });
+        if (DOM.musicOnly) DOM.musicOnly.addEventListener('change', (e) => {
+            RG.currentProject.audio.keepVideoAudio = !e.target.checked;
+            if (PV.video) PV.video.muted = e.target.checked;
+        });
+        if (DOM.musicFade) DOM.musicFade.addEventListener('change', (e) => {
+            RG.currentProject.audio.musicFadeIn = e.target.checked;
+            RG.currentProject.audio.musicFadeOut = e.target.checked;
+        });
+        if (DOM.beatSync) DOM.beatSync.addEventListener('change', (e) => {
+            RG.currentProject.audio.beatSync = e.target.checked;
+            if (typeof refreshPreview === 'function') refreshPreview();
+        });
+
+        // Untertitel (optional)
+        function syncSubs() {
+            RG.currentProject.subsEnabled = !!(DOM.enableSubs && DOM.enableSubs.checked);
+            RG.currentProject.subtitles = (DOM.subsText ? DOM.subsText.value : '')
+                .split('\n').map(l => l.trim()).filter(Boolean);
+            if (PV.ctx) pvDraw();
+        }
+        if (DOM.enableSubs) DOM.enableSubs.addEventListener('change', syncSubs);
+        if (DOM.subsText) DOM.subsText.addEventListener('input', syncSubs);
+
+        // ===== KI-VEREDELUNG (optional, Claude) =====
+        function refreshKeyStatus() {
+            if (!DOM.aiKeyStatus) return;
+            DOM.aiKeyStatus.textContent = (typeof AIEnhance !== 'undefined' && AIEnhance.hasKey()) ? 'gesetzt ✓' : 'nicht gesetzt';
+        }
+        if (DOM.btnSaveKey) DOM.btnSaveKey.addEventListener('click', () => {
+            if (typeof AIEnhance === 'undefined') return;
+            AIEnhance.setKey((DOM.anthropicKey.value || '').trim());
+            DOM.anthropicKey.value = '';
+            refreshKeyStatus();
+            showAlert('🔑 Schlüssel lokal gespeichert.', 'success');
+        });
+        refreshKeyStatus();
+
+        async function aiEnhance() {
+            if (typeof AIEnhance === 'undefined') { showAlert('KI-Modul nicht geladen.', 'danger'); return; }
+            if (!AIEnhance.hasKey()) {
+                showAlert('Bitte zuerst den Claude-API-Schlüssel in den Einstellungen speichern.', 'danger');
+                switchTab('settings');
+                return;
+            }
+            const btn = DOM.btnAiEnhance;
+            const label = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = '✨ Claude denkt…'; }
+            try {
+                const res = await AIEnhance.enhance({
+                    title: (DOM.videoTitle && DOM.videoTitle.value) || '',
+                    description: (DOM.videoDescription && DOM.videoDescription.value) || '',
+                    platform: (DOM.platformSelect && DOM.platformSelect.value) || 'tiktok',
+                    scenes: RG.cache.scenes || []
+                });
+                if (res.hook) {
+                    RG.currentProject.timeline.hook = res.hook;
+                    if (DOM.hookInput) DOM.hookInput.value = res.hook;
+                }
+                if (res.description && DOM.videoDescription) DOM.videoDescription.value = res.description;
+                if (res.hashtags && res.hashtags.length && DOM.hashtagsInput) DOM.hashtagsInput.value = res.hashtags.join(' ');
+                if (res.bestScenes && res.bestScenes.length && RG.cache.scenes && RG.cache.scenes.length) {
+                    const keep = new Set(res.bestScenes);
+                    RG.cache.scenes.forEach((s, i) => { s.selected = keep.has(i); });
+                    renderSceneList();
+                }
+                if (typeof refreshPreview === 'function') refreshPreview();
+                showAlert('✨ Von Claude verbessert – Hook, Text, Hashtags & beste Szenen übernommen.', 'success');
+            } catch (err) {
+                console.error('AI enhance failed:', err);
+                showAlert('KI fehlgeschlagen: ' + err.message, 'danger');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = label; }
+            }
+        }
+        if (DOM.btnAiEnhance) DOM.btnAiEnhance.addEventListener('click', aiEnhance);
+
+        // ===== AUTO-UNTERTITEL (Sprache) =====
+        function refreshSubKeyStatus() {
+            if (!DOM.subKeyStatus) return;
+            DOM.subKeyStatus.textContent = (typeof SubtitleAI !== 'undefined' && SubtitleAI.hasKey()) ? 'gesetzt ✓' : 'nicht gesetzt';
+        }
+        if (DOM.btnSaveOpenaiKey) DOM.btnSaveOpenaiKey.addEventListener('click', () => {
+            if (typeof SubtitleAI === 'undefined') return;
+            SubtitleAI.setKey((DOM.openaiKey.value || '').trim());
+            DOM.openaiKey.value = '';
+            refreshSubKeyStatus();
+            showAlert('🔑 OpenAI-Schlüssel lokal gespeichert.', 'success');
+        });
+        refreshSubKeyStatus();
+
+        let dictation = null;
+        function fillSubs(lines) {
+            if (!lines || !lines.length) { showAlert('Keine Sprache erkannt.', 'info'); return; }
+            const existing = (DOM.subsText.value || '').trim();
+            DOM.subsText.value = (existing ? existing + '\n' : '') + lines.join('\n');
+            if (DOM.enableSubs) DOM.enableSubs.checked = true;
+            syncSubs();
+        }
+        async function autoSubtitles() {
+            if (typeof SubtitleAI === 'undefined') { showAlert('Untertitel-Modul nicht geladen.', 'danger'); return; }
+
+            // Läuft ein Diktat? -> stoppen.
+            if (dictation) { try { dictation.stop(); } catch (e) {} dictation = null; DOM.btnAutoSubs.textContent = '🎙️ Auto-Untertitel (Sprache)'; return; }
+
+            // 1) Whisper, wenn OpenAI-Schlüssel hinterlegt
+            if (SubtitleAI.hasKey()) {
+                const video = RG.currentProject.videos[0];
+                if (!video) { showAlert('Bitte zuerst ein Video laden.', 'danger'); return; }
+                const btn = DOM.btnAutoSubs, label = btn.textContent;
+                btn.disabled = true; btn.textContent = '🎙️ Transkribiere…';
+                try {
+                    const blob = video.data instanceof Blob ? video.data : new Blob([video.data], { type: video.type || 'video/mp4' });
+                    const lines = await SubtitleAI.transcribeWhisper(blob, { language: 'de' });
+                    fillSubs(lines);
+                    showAlert(`✅ ${lines.length} Untertitel-Zeilen erkannt.`, 'success');
+                } catch (err) {
+                    console.error('Whisper failed:', err);
+                    showAlert('Transkription fehlgeschlagen: ' + err.message, 'danger');
+                } finally { btn.disabled = false; btn.textContent = label; }
+                return;
+            }
+
+            // 2) Browser-Spracherkennung (Diktat), kein Schlüssel nötig
+            if (SubtitleAI.hasWebSpeech()) {
+                try {
+                    showAlert('🎤 Sprich jetzt – nochmal klicken zum Stoppen.', 'info');
+                    DOM.btnAutoSubs.textContent = '⏹ Diktat stoppen';
+                    dictation = SubtitleAI.dictate(
+                        (line) => fillSubs([line]),
+                        (err) => { dictation = null; DOM.btnAutoSubs.textContent = '🎙️ Auto-Untertitel (Sprache)'; if (err) showAlert('Spracherkennung: ' + err, 'danger'); }
+                    );
+                } catch (err) {
+                    showAlert(err.message, 'danger');
+                    DOM.btnAutoSubs.textContent = '🎙️ Auto-Untertitel (Sprache)';
+                }
+                return;
+            }
+
+            showAlert('Für Auto-Untertitel: OpenAI-Schlüssel in Einstellungen setzen, oder einen Browser mit Spracherkennung nutzen.', 'danger');
+        }
+        if (DOM.btnAutoSubs) DOM.btnAutoSubs.addEventListener('click', autoSubtitles);
+
+        // ===== REEL-VORSCHAU (baut aus aktuellen Einstellungen, spielt ab) =====
+        async function toggleReelPreview() {
+            if (PV.playing) { pvPause(); return; }
+            if (RG.currentProject.videos.length === 0) { showAlert('Bitte zuerst ein Video laden & analysieren.', 'danger'); return; }
+            if (RG.ui.currentTab !== 'editor') switchTab('editor');
+            if (!PV.video) { initPreview(); await new Promise(r => setTimeout(r, 350)); }
+            await refreshPreview();
+            pvPlay();
+        }
+        function stopReelPreview() { pvPause(); }
+
+        if (DOM.btnPreviewReel) DOM.btnPreviewReel.addEventListener('click', toggleReelPreview);
+
+        // ===== FILMORA =====
+        // Upload-/Weiterbearbeiten-Links
+        const UPLOAD_URLS = {
+            tiktok: 'https://www.tiktok.com/upload',
+            instagram: 'https://www.instagram.com/',
+            youtube: 'https://www.youtube.com/upload',
+            twitter: 'https://twitter.com/compose/tweet',
+            canva: 'https://www.canva.com/create/videos/'
+        };
+        function openPlatform(key) {
+            if (RG.lastExportBlob) { try { downloadVideo(); } catch (e) {} }
+            else showAlert('Tipp: Zuerst exportieren, dann hochladen/öffnen.', 'info');
+            window.open(UPLOAD_URLS[key] || 'https://', '_blank');
+        }
+        ['Tiktok', 'Instagram', 'Youtube', 'Twitter'].forEach(p => {
+            const el = document.getElementById('btnShare' + p);
+            if (el) el.addEventListener('click', () => openPlatform(p.toLowerCase()));
+        });
+        const btnCanvaEl = document.getElementById('btnOpenCanva');
+        if (btnCanvaEl) btnCanvaEl.addEventListener('click', () => openPlatform('canva'));
+
+        async function openInFilmora() {
+            if (!RG.lastExportBlob) {
+                showAlert('Bitte zuerst ein Video exportieren.', 'danger');
+                return;
+            }
+            // Im Browser: Filmora kann nicht direkt gestartet werden -> Datei speichern + Hinweis
+            if (!window.electron || !window.electron.filmora) {
+                await saveVideoAs();
+                showAlert('💾 Gespeichert. Öffne Filmora → „Importieren" → dein Video. (Automatisches Starten nur in der Desktop-App / .exe.)', 'info');
+                return;
+            }
+            try {
+                const buf = await RG.lastExportBlob.arrayBuffer();
+                const ext = (RG.currentProject.lastExport && RG.currentProject.lastExport.format) || 'mp4';
+                const saved = await window.electron.fs.saveBuffer(`videoreel-${RG.currentProject.id}.${ext}`, buf);
+                if (!saved || !saved.saved) return;
+
+                if (DOM.enableWfp && DOM.enableWfp.checked) {
+                    const wfp = await window.electron.filmora.exportWfp({
+                        mediaPath: saved.path,
+                        title: (DOM.videoTitle && DOM.videoTitle.value) || 'VideoReel',
+                        fps: parseInt(DOM.fpsSelect.value) || 30,
+                        width: 1080, height: 1920
+                    });
+                    if (wfp && wfp.ok) showAlert('📄 Filmora-Projekt (.wfp) erstellt (experimentell).', 'info');
+                }
+
+                const res = await window.electron.filmora.open(saved.path);
+                if (res && res.launched === 'filmora') {
+                    showAlert('🎬 Filmora wird mit deinem Video gestartet…', 'success');
+                } else {
+                    showAlert('Filmora nicht gefunden – Datei im Explorer markiert. Einfach in Filmora ziehen.', 'info');
+                }
+            } catch (err) {
+                console.error('Filmora open failed:', err);
+                showAlert('Konnte Video nicht an Filmora übergeben.', 'danger');
+            }
+        }
+
+        // Modal close
+        DOM.btnModalCancel.addEventListener('click', closeModal);
+        DOM.modalBackdrop.addEventListener('click', (e) => {
+            if (e.target === DOM.modalBackdrop) closeModal();
+        });
+
+        // Initial render
+        renderMediaList('video');
+        renderMediaList('music');
+        renderMediaList('image');
+
+        showAlert('🎬 Willkommen bei VideoReel Pro!', 'info');
+
+        // Menü-Ereignisse aus dem Electron-Hauptprozess
+        if (window.electron) {
+            window.electron.onMenuNewProject?.(() => document.getElementById('btnReset')?.click());
+            window.electron.onMenuSaveProject?.(() => document.getElementById('btnSave')?.click());
+        }
+    </script>
+</body>
+</html>

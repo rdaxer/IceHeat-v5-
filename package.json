@@ -1,0 +1,19 @@
+{
+  "name": "videoreel-pro",
+  "version": "1.0.0",
+  "description": "Professional Video Reel Generator for Windows",
+  "main": "src/main/index.js",
+  "homepage": "./",
+  "author": "VideoReel Pro",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder --win --publish never",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}
