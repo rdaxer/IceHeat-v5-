@@ -968,6 +968,27 @@
                     </div>
                 </div>
 
+                <!-- AUTO-REEL -->
+                <div class="upload-card" style="margin-bottom: 12px;">
+                    <h3>🎬 Auto-Reel</h3>
+                    <label style="display:block; font-size: 12px; color: var(--text); margin: 6px 0;">
+                        <input type="checkbox" id="reelMode" checked style="margin-right: 6px;">
+                        Nur die besten Szenen automatisch zusammenschneiden
+                    </label>
+                    <div style="display:flex; align-items:center; gap:8px; font-size: 12px; color: var(--muted);">
+                        <span>Maximale Länge:</span>
+                        <select class="form-select" id="reelLength" style="width:auto; flex:1;">
+                            <option value="30">30 Sekunden</option>
+                            <option value="60" selected>60 Sekunden</option>
+                            <option value="90">90 Sekunden</option>
+                            <option value="180">3 Minuten</option>
+                        </select>
+                    </div>
+                    <p style="font-size: 10px; color: var(--muted); margin-top: 8px;">
+                        Ohne Auto-Reel wird das gesamte Video (bis 60 s) mit Hook exportiert.
+                    </p>
+                </div>
+
                 <!-- ACTION BUTTONS -->
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-primary" id="btnStartExport" style="flex: 1;">
@@ -1155,6 +1176,8 @@
             btnDownloadVideo: document.getElementById('btnDownloadVideo'),
             btnOpenFilmora: document.getElementById('btnOpenFilmora'),
             enableWfp: document.getElementById('enableWfp'),
+            reelMode: document.getElementById('reelMode'),
+            reelLength: document.getElementById('reelLength'),
             projectsList: document.getElementById('projectsList'),
 
             // Modal
@@ -1480,6 +1503,46 @@
             }
         }
 
+        // Wählt die besten Szenen aus und macht daraus zusammenhängende Segmente
+        // (chronologisch), bis die Ziel-Länge erreicht ist. Max. 3 Minuten.
+        function buildReelSegments(scenes, videoDuration, targetSec) {
+            if (!scenes || !scenes.length) return [];
+            targetSec = Math.min(Math.max(targetSec || 60, 5), 180);
+            const MINLEN = 2.0; // Mindestlänge pro Segment (keine 0,5s-Zuckungen)
+            const dur = isFinite(videoDuration) && videoDuration > 0 ? videoDuration : null;
+
+            let segs = scenes.map(s => {
+                let a = Number(s.startTime ?? s.start ?? 0);
+                let b = Number(s.endTime ?? s.end ?? a);
+                if (b - a < MINLEN) { const mid = (a + b) / 2; a = mid - MINLEN / 2; b = mid + MINLEN / 2; }
+                a = Math.max(0, a);
+                if (dur) b = Math.min(dur, b);
+                return { start: a, end: b, quality: Number(s.quality ?? 0) };
+            }).filter(s => s.end > s.start);
+
+            // Nach Qualität wählen bis Ziel-Länge
+            segs.sort((a, b) => b.quality - a.quality);
+            const chosen = [];
+            let total = 0;
+            for (const s of segs) {
+                const d = s.end - s.start;
+                if (total + d > targetSec && chosen.length) continue;
+                chosen.push(s);
+                total += d;
+                if (total >= targetSec) break;
+            }
+
+            // Chronologisch + überlappende/angrenzende zusammenführen
+            chosen.sort((a, b) => a.start - b.start);
+            const merged = [];
+            for (const s of chosen) {
+                const last = merged[merged.length - 1];
+                if (last && s.start <= last.end + 0.1) last.end = Math.max(last.end, s.end);
+                else merged.push({ start: s.start, end: s.end });
+            }
+            return merged;
+        }
+
         // ===== EXPORT & DOWNLOAD =====
         async function startExport() {
             if (RG.currentProject.videos.length === 0) {
@@ -1504,8 +1567,24 @@
                     resolution: DOM.resolutionSelect.value.replace('p', '')
                 };
 
-                // Echter Export via MediaRecorder (lokal, offline)
-                const result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
+                // Auto-Reel (beste Szenen) oder ganzes Video?
+                const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
+                let result;
+                if (useReel) {
+                    const targetSec = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
+                    const vidDur = (previewVideo && isFinite(previewVideo.duration) && previewVideo.duration) ||
+                                   Math.max(...RG.cache.scenes.map(s => Number(s.endTime ?? s.end ?? 0)), targetSec);
+                    const segments = buildReelSegments(RG.cache.scenes, vidDur, targetSec);
+                    if (!segments.length) {
+                        showAlert('Keine geeigneten Szenen – exportiere ganzes Video.', 'info');
+                        result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
+                    } else {
+                        showAlert(`🎬 Baue Auto-Reel aus ${segments.length} Top-Szenen…`, 'info');
+                        result = await ExportManager.exportReel(RG.currentProject, segments, exportOptions, updateProgress);
+                    }
+                } else {
+                    result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
+                }
 
                 DOM.exportProgress.style.width = '100%';
                 DOM.exportStatus.textContent = '✅ Export abgeschlossen!';

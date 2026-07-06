@@ -43,6 +43,15 @@ const ExportManager = (() => {
         return lines.slice(0, 4);
     }
 
+    const FILTER_CSS = {
+        none: 'none',
+        vivid: 'saturate(1.5) contrast(1.1)',
+        warm: 'sepia(0.35) saturate(1.3)',
+        cool: 'hue-rotate(-15deg) saturate(1.2) brightness(1.05)',
+        bw: 'grayscale(1) contrast(1.1)',
+        vintage: 'sepia(0.5) contrast(0.9) brightness(1.05)'
+    };
+
     async function exportVideo(project, options = {}, onProgress = () => {}) {
         if (!window.MediaRecorder) throw new Error('MediaRecorder wird nicht unterstützt');
         const video = project && project.videos && project.videos[0];
@@ -199,5 +208,143 @@ const ExportManager = (() => {
         return { blob, format: outType, size: blob.size, duration: maxDur };
     }
 
-    return { exportVideo };
+    // Auto-Reel: reiht die ausgewählten Szenen-Segmente zu einem Video zusammen.
+    // segments: [{ start, end }] in Sekunden, chronologisch.
+    async function exportReel(project, segments, options = {}, onProgress = () => {}) {
+        if (!window.MediaRecorder) throw new Error('MediaRecorder wird nicht unterstützt');
+        const video = project && project.videos && project.videos[0];
+        if (!video) throw new Error('Kein Video vorhanden');
+        segments = (segments || []).filter(s => s && s.end > s.start).sort((a, b) => a.start - b.start);
+        if (!segments.length) throw new Error('Keine Szenen ausgewählt');
+
+        const fps = parseInt(options.fps) || 30;
+        const height = parseInt(String(options.resolution).replace(/\D/g, '')) || 1080;
+        const [aw, ah] = aspectFor(options.platform);
+        const outH = Math.round(height / 2) * 2;
+        const outW = Math.round(height * aw / ah / 2) * 2;
+        const totalOut = segments.reduce((s, seg) => s + (seg.end - seg.start), 0);
+
+        const vEl = document.createElement('video');
+        vEl.playsInline = true;
+        vEl.src = URL.createObjectURL(blobFromMedia(video));
+        await new Promise((res, rej) => {
+            vEl.onloadedmetadata = res;
+            vEl.onerror = () => rej(new Error('Video konnte nicht geladen werden'));
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = outW; canvas.height = outH;
+        const ctx = canvas.getContext('2d');
+
+        const fx = project.effects || {};
+        const filterCss = FILTER_CSS[fx.filter] || 'none';
+        const overlayText = fx.textOverlay || '';
+        const hookText = (project.timeline && (project.timeline.hook ||
+            (project.timeline.hookConfig && project.timeline.hookConfig.text))) || '';
+
+        // Audio: bevorzugt Musik-Bett (nahtlos über Schnitte), sonst Video-Ton
+        let audioDest = null, audioCtx = null, musicEl = null;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioDest = audioCtx.createMediaStreamDestination();
+            if (project.music) {
+                musicEl = document.createElement('audio');
+                musicEl.src = URL.createObjectURL(blobFromMedia(project.music));
+                musicEl.loop = true;
+                try { audioCtx.createMediaElementSource(musicEl).connect(audioDest); } catch (e) {}
+            } else {
+                try { audioCtx.createMediaElementSource(vEl).connect(audioDest); } catch (e) {}
+            }
+        } catch (e) { audioDest = null; }
+
+        const cStream = canvas.captureStream(fps);
+        const tracks = cStream.getVideoTracks().concat(audioDest ? audioDest.stream.getAudioTracks() : []);
+        const stream = new MediaStream(tracks);
+        const mime = pickMime(String(options.format || 'mp4').toLowerCase().includes('mp4'));
+        const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: (parseInt(options.bitrate) || 6000) * 1000 } : undefined);
+        const chunks = [];
+        rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+
+        function drawText(text, cy, sizeFactor) {
+            const fs = Math.round(outW * sizeFactor);
+            ctx.font = `900 ${fs}px Barlow, Arial, sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            wrapLines(ctx, text, outW * 0.86).forEach((ln, i) => {
+                const ly = cy + i * fs * 1.15;
+                ctx.lineWidth = fs * 0.18; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(ln, outW / 2, ly);
+                ctx.fillStyle = '#fff'; ctx.fillText(ln, outW / 2, ly);
+            });
+        }
+
+        function seekTo(t) {
+            return new Promise(res => {
+                const on = () => { vEl.removeEventListener('seeked', on); res(); };
+                vEl.addEventListener('seeked', on);
+                vEl.currentTime = t;
+            });
+        }
+
+        let segIdx = 0, outElapsed = 0, seeking = false;
+
+        await new Promise(async (resolve, reject) => {
+            rec.onstop = resolve;
+            rec.onerror = e => reject((e && e.error) || new Error('Aufnahme-Fehler'));
+
+            function draw() {
+                const vw = vEl.videoWidth || outW, vh = vEl.videoHeight || outH;
+                const scale = Math.max(outW / vw, outH / vh);
+                const dw = vw * scale, dh = vh * scale;
+                ctx.fillStyle = '#000'; ctx.fillRect(0, 0, outW, outH);
+                ctx.filter = filterCss;
+                ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
+                ctx.filter = 'none';
+                if (hookText && outElapsed < 3) drawText(hookText, outH * 0.25, 0.075);
+                if (overlayText) drawText(overlayText, outH * 0.86, 0.055);
+                if (fx.fade) {
+                    let a = 0;
+                    if (outElapsed < 0.5) a = 1 - outElapsed / 0.5;
+                    else if (outElapsed > totalOut - 0.5) a = (outElapsed - (totalOut - 0.5)) / 0.5;
+                    if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a)})`; ctx.fillRect(0, 0, outW, outH); }
+                }
+            }
+
+            let last = performance.now();
+            async function tick() {
+                if (seeking) { draw(); requestAnimationFrame(tick); return; }
+                const now = performance.now(); const dt = (now - last) / 1000; last = now;
+                draw();
+                outElapsed = Math.min(totalOut, outElapsed + dt);
+                onProgress(Math.min(99, Math.round(outElapsed / totalOut * 100)), `Reel… ${outElapsed.toFixed(1)}s / ${totalOut.toFixed(1)}s`);
+                const seg = segments[segIdx];
+                if (vEl.currentTime >= seg.end - 0.03 || vEl.ended) {
+                    segIdx++;
+                    if (segIdx >= segments.length) {
+                        try { if (rec.state !== 'inactive') rec.stop(); } catch (e) {}
+                        vEl.pause(); if (musicEl) musicEl.pause();
+                        return;
+                    }
+                    seeking = true; await seekTo(segments[segIdx].start); seeking = false; last = performance.now();
+                }
+                requestAnimationFrame(tick);
+            }
+
+            try { rec.start(100); } catch (e) { return reject(e); }
+            try { if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume(); } catch (e) {}
+            seeking = true; await seekTo(segments[0].start); seeking = false;
+            try { await vEl.play(); } catch (e) {}
+            if (musicEl) { try { musicEl.currentTime = 0; await musicEl.play(); } catch (e) {} }
+            last = performance.now();
+            requestAnimationFrame(tick);
+            setTimeout(() => { try { if (rec.state !== 'inactive') rec.stop(); } catch (e) {} }, (totalOut + 10) * 1000);
+        });
+
+        const outType = mime && mime.indexOf('video/mp4') === 0 ? 'mp4' : 'webm';
+        const blob = new Blob(chunks, { type: mime || 'video/webm' });
+        onProgress(100, '✅ Reel fertig');
+        try { URL.revokeObjectURL(vEl.src); } catch (e) {}
+        if (musicEl) { try { URL.revokeObjectURL(musicEl.src); } catch (e) {} }
+        return { blob, format: outType, size: blob.size, duration: totalOut, segments: segments.length };
+    }
+
+    return { exportVideo, exportReel };
 })();
