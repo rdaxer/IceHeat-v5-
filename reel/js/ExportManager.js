@@ -69,14 +69,28 @@ const ExportManager = (() => {
         canvas.width = outW; canvas.height = outH;
         const ctx = canvas.getContext('2d');
 
-        // Audio: Video-Ton + optionale Musik zusammenmischen
-        let audioDest = null, audioCtx = null, musicEl = null;
+        const fx = project.effects || {};
+        const FILTER_CSS = {
+            none: 'none',
+            vivid: 'saturate(1.5) contrast(1.1)',
+            warm: 'sepia(0.35) saturate(1.3)',
+            cool: 'hue-rotate(-15deg) saturate(1.2) brightness(1.05)',
+            bw: 'grayscale(1) contrast(1.1)',
+            vintage: 'sepia(0.5) contrast(0.9) brightness(1.05)'
+        };
+        const filterCss = FILTER_CSS[fx.filter] || 'none';
+        const overlayText = fx.textOverlay || '';
+
+        // Audio: Video-Ton + optionale Musik über eine Master-Gain (für Ton-Ausblendung)
+        let audioDest = null, audioCtx = null, musicEl = null, masterGain = null;
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audioDest = audioCtx.createMediaStreamDestination();
+            masterGain = audioCtx.createGain();
+            masterGain.connect(audioDest);
             try {
                 const vNode = audioCtx.createMediaElementSource(vEl);
-                vNode.connect(audioDest);
+                vNode.connect(masterGain);
             } catch (e) { /* Video evtl. ohne Tonspur */ }
             if (project.music) {
                 musicEl = document.createElement('audio');
@@ -84,7 +98,7 @@ const ExportManager = (() => {
                 musicEl.loop = true;
                 try {
                     const mNode = audioCtx.createMediaElementSource(musicEl);
-                    mNode.connect(audioDest);
+                    mNode.connect(masterGain);
                 } catch (e) { /* ignore */ }
             }
         } catch (e) { audioDest = null; }
@@ -104,29 +118,50 @@ const ExportManager = (() => {
         const hookText = (project.timeline && (project.timeline.hook ||
             (project.timeline.hookConfig && project.timeline.hookConfig.text))) || '';
 
+        function drawText(text, cy, sizeFactor) {
+            const fontSize = Math.round(outW * sizeFactor);
+            ctx.font = `900 ${fontSize}px Barlow, Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const lines = wrapLines(ctx, text, outW * 0.86);
+            lines.forEach((ln, i) => {
+                const ly = cy + i * fontSize * 1.15;
+                ctx.lineWidth = fontSize * 0.18;
+                ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+                ctx.strokeText(ln, outW / 2, ly);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(ln, outW / 2, ly);
+            });
+        }
+
         function drawFrame() {
             const vw = vEl.videoWidth || outW, vh = vEl.videoHeight || outH;
             const scale = Math.max(outW / vw, outH / vh);
             const dw = vw * scale, dh = vh * scale;
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, outW, outH);
-            ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
 
-            if (hookText && vEl.currentTime < 3) {
-                const fontSize = Math.round(outW * 0.075);
-                ctx.font = `900 ${fontSize}px Barlow, Arial, sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const lines = wrapLines(ctx, hookText, outW * 0.86);
-                const startY = outH * 0.25;
-                lines.forEach((ln, i) => {
-                    const ly = startY + i * fontSize * 1.15;
-                    ctx.lineWidth = fontSize * 0.18;
-                    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-                    ctx.strokeText(ln, outW / 2, ly);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(ln, outW / 2, ly);
-                });
+            // Farb-Filter nur auf das Videobild anwenden
+            ctx.filter = filterCss;
+            ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
+            ctx.filter = 'none';
+
+            if (hookText && vEl.currentTime < 3) drawText(hookText, outH * 0.25, 0.075);
+            if (overlayText) drawText(overlayText, outH * 0.86, 0.055);
+
+            // Ein-/Ausblenden (Fade)
+            if (fx.fade) {
+                const t = vEl.currentTime, d = maxDur;
+                let a = 0;
+                if (t < 0.5) a = 1 - t / 0.5;
+                else if (t > d - 0.5) a = (t - (d - 0.5)) / 0.5;
+                if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a)})`; ctx.fillRect(0, 0, outW, outH); }
+            }
+
+            // Ton ausblenden am Ende
+            if (fx.audioFade && masterGain) {
+                const rem = maxDur - vEl.currentTime;
+                masterGain.gain.value = rem < 1 ? Math.max(0, rem) : 1;
             }
         }
 

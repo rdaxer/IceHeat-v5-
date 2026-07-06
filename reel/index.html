@@ -820,10 +820,10 @@
                     <div class="sidebar-section">
                         <div class="sidebar-title">✨ Effekte</div>
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <button class="btn btn-ghost btn-sm" style="width: 100%;">🌈 Filter</button>
-                            <button class="btn btn-ghost btn-sm" style="width: 100%;">✂️ Übergänge</button>
-                            <button class="btn btn-ghost btn-sm" style="width: 100%;">📝 Text Overlay</button>
-                            <button class="btn btn-ghost btn-sm" style="width: 100%;">🔊 Ton-Effekte</button>
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxFilter">🌈 Filter: Aus</button>
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxTransition">✂️ Übergang (Fade): Aus</button>
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxText">📝 Text-Overlay</button>
+                            <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxSound">🔊 Ton ausblenden: Aus</button>
                         </div>
                     </div>
                 </div>
@@ -1062,6 +1062,12 @@
                 timeline: {
                     clips: [],
                     duration: 0
+                },
+                effects: {
+                    filter: 'none',
+                    fade: false,
+                    textOverlay: '',
+                    audioFade: false
                 }
             },
             settings: {
@@ -1123,6 +1129,10 @@
             btnGenerateHook: document.getElementById('btnGenerateHook'),
             btnMusicSync: document.getElementById('btnMusicSync'),
             sceneList: document.getElementById('sceneList'),
+            btnFxFilter: document.getElementById('btnFxFilter'),
+            btnFxTransition: document.getElementById('btnFxTransition'),
+            btnFxText: document.getElementById('btnFxText'),
+            btnFxSound: document.getElementById('btnFxSound'),
 
             // Settings
             resolutionSelect: document.getElementById('resolutionSelect'),
@@ -1182,6 +1192,10 @@
             document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
 
             RG.ui.currentTab = tabName;
+
+            if (tabName === 'editor' && RG.currentProject.videos.length > 0) {
+                loadPreview();
+            }
         }
 
         function showModal(title, content, onOk = null) {
@@ -1607,6 +1621,99 @@
         DOM.btnStartExport.addEventListener('click', startExport);
         DOM.btnDownloadVideo.addEventListener('click', downloadVideo);
         if (DOM.btnOpenFilmora) DOM.btnOpenFilmora.addEventListener('click', openInFilmora);
+
+        // ===== PREVIEW / PLAYER =====
+        const CSS_FILTERS = {
+            none:    { label: 'Aus',      css: 'none' },
+            vivid:   { label: 'Vivid',    css: 'saturate(1.5) contrast(1.1)' },
+            warm:    { label: 'Warm',     css: 'sepia(0.35) saturate(1.3)' },
+            cool:    { label: 'Cool',     css: 'hue-rotate(-15deg) saturate(1.2) brightness(1.05)' },
+            bw:      { label: 'S/W',      css: 'grayscale(1) contrast(1.1)' },
+            vintage: { label: 'Vintage',  css: 'sepia(0.5) contrast(0.9) brightness(1.05)' }
+        };
+        let previewVideo = null;
+
+        function fmtTime(t) {
+            t = Math.max(0, Math.floor(t || 0));
+            const m = Math.floor(t / 60), s = t % 60;
+            return `${m}:${String(s).padStart(2, '0')}`;
+        }
+
+        function loadPreview() {
+            const video = RG.currentProject.videos[0];
+            if (!video) return;
+            // <video> nur einmal anlegen
+            if (!previewVideo || !DOM.previewCanvas.contains(previewVideo)) {
+                DOM.previewCanvas.innerHTML = '';
+                previewVideo = document.createElement('video');
+                previewVideo.setAttribute('playsinline', '');
+                previewVideo.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;border-radius:8px';
+                DOM.previewCanvas.appendChild(previewVideo);
+
+                previewVideo.addEventListener('loadedmetadata', () => {
+                    DOM.duration.textContent = fmtTime(previewVideo.duration);
+                });
+                previewVideo.addEventListener('timeupdate', () => {
+                    DOM.currentTime.textContent = fmtTime(previewVideo.currentTime);
+                    if (previewVideo.duration) {
+                        DOM.currentTimeSlider.value = (previewVideo.currentTime / previewVideo.duration) * 100;
+                    }
+                });
+                previewVideo.addEventListener('play', () => { DOM.btnPlayPause.textContent = '⏸ Pause'; RG.ui.isPlaying = true; });
+                previewVideo.addEventListener('pause', () => { DOM.btnPlayPause.textContent = '▶ Play'; RG.ui.isPlaying = false; });
+                previewVideo.addEventListener('ended', () => { DOM.btnPlayPause.textContent = '▶ Play'; RG.ui.isPlaying = false; });
+            }
+            const blob = video.data instanceof Blob ? video.data : new Blob([video.data], { type: video.type || 'video/mp4' });
+            previewVideo.src = URL.createObjectURL(blob);
+            applyPreviewFilter();
+        }
+
+        function applyPreviewFilter() {
+            if (!previewVideo) return;
+            const fx = RG.currentProject.effects || {};
+            const f = CSS_FILTERS[fx.filter] || CSS_FILTERS.none;
+            previewVideo.style.filter = f.css;
+        }
+
+        function togglePlay() {
+            if (!previewVideo) { showAlert('Bitte zuerst ein Video laden.', 'danger'); return; }
+            if (previewVideo.paused) previewVideo.play(); else previewVideo.pause();
+        }
+
+        DOM.btnPlayPause.addEventListener('click', togglePlay);
+        DOM.currentTimeSlider.addEventListener('input', (e) => {
+            if (previewVideo && previewVideo.duration) {
+                previewVideo.currentTime = (e.target.value / 100) * previewVideo.duration;
+            }
+        });
+
+        // ===== EFFEKTE =====
+        DOM.btnFxFilter.addEventListener('click', () => {
+            const keys = Object.keys(CSS_FILTERS);
+            const cur = RG.currentProject.effects.filter || 'none';
+            const next = keys[(keys.indexOf(cur) + 1) % keys.length];
+            RG.currentProject.effects.filter = next;
+            DOM.btnFxFilter.textContent = '🌈 Filter: ' + CSS_FILTERS[next].label;
+            applyPreviewFilter();
+        });
+        DOM.btnFxTransition.addEventListener('click', () => {
+            const on = !RG.currentProject.effects.fade;
+            RG.currentProject.effects.fade = on;
+            DOM.btnFxTransition.textContent = '✂️ Übergang (Fade): ' + (on ? 'An' : 'Aus');
+            showAlert(on ? 'Ein-/Ausblenden wird beim Export angewendet.' : 'Übergang aus.', 'info');
+        });
+        DOM.btnFxText.addEventListener('click', () => {
+            const txt = prompt('Text-Overlay (unten im Video):', RG.currentProject.effects.textOverlay || '');
+            if (txt === null) return;
+            RG.currentProject.effects.textOverlay = txt;
+            DOM.btnFxText.textContent = txt ? '📝 Text: ' + txt.slice(0, 14) : '📝 Text-Overlay';
+            showAlert(txt ? 'Text-Overlay gesetzt (erscheint im Export).' : 'Text-Overlay entfernt.', 'info');
+        });
+        DOM.btnFxSound.addEventListener('click', () => {
+            const on = !RG.currentProject.effects.audioFade;
+            RG.currentProject.effects.audioFade = on;
+            DOM.btnFxSound.textContent = '🔊 Ton ausblenden: ' + (on ? 'An' : 'Aus');
+        });
 
         // ===== FILMORA =====
         async function openInFilmora() {

@@ -16,8 +16,29 @@ const SceneAnalyzer = (() => {
             const video = document.createElement('video');
             const frames = [];
 
-            video.onloadedmetadata = () => {
-                const totalDuration = video.duration;
+            // Manche Container (v. a. MediaRecorder-WebM) melden duration = Infinity.
+            // Dann erst ans Ende springen, um die echte Länge zu erhalten.
+            function ensureDuration() {
+                return new Promise((res) => {
+                    if (isFinite(video.duration) && video.duration > 0) return res(video.duration);
+                    let done = false;
+                    const finish = () => {
+                        if (done) return; done = true;
+                        video.removeEventListener('durationchange', onDc);
+                        res(isFinite(video.duration) && video.duration > 0 ? video.duration : 0);
+                    };
+                    const onDc = () => { if (isFinite(video.duration) && video.duration > 0) finish(); };
+                    video.addEventListener('durationchange', onDc);
+                    try { video.currentTime = 1e101; } catch (e) {}
+                    setTimeout(finish, 3000);
+                });
+            }
+
+            video.onloadedmetadata = async () => {
+                const totalDuration = await ensureDuration();
+                if (!totalDuration) { URL.revokeObjectURL(url); return resolve(frames); }
+                // Hinweis: currentTime NICHT vorab auf 0 setzen – der erste
+                // extractFrame()-Seek erledigt das und löst 'seeked' aus.
                 const interval = Math.max(FRAME_INTERVAL, totalDuration / maxFrames);
                 let currentTime = 0;
                 let frameCount = 0;
