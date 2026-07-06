@@ -37,10 +37,6 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "IceHeat Desktop",
-    "installerIcon": "build/icons/setup.ico",
-    "uninstallerIcon": "build/icons/uninstall.ico",
-    "installerHeaderIcon": "build/icons/app.ico",
-    "installerSidebar": "build/installer-background.bmp",
     "deleteAppDataOnUninstall": false,
     "artifactName": "${productName}-${version}-Installer.${ext}"
   },
