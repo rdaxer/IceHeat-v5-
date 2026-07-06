@@ -757,10 +757,7 @@
                         <div class="form-group">
                             <label class="form-label">Hook-Stil</label>
                             <select class="form-select" id="hookStyleSelect">
-                                <option value="action">Action/Schnell</option>
-                                <option value="comedy">Comedy/Lustig</option>
-                                <option value="suspense">Spannung/Mystery</option>
-                                <option value="educational">Lehrreich/Tutorial</option>
+                                <option value="neugier">🔍 Neugier (stärkster Hook)</option>
                             </select>
                         </div>
                         <button class="btn btn-primary" id="btnAnalyze" style="width: 100%; margin-top: 12px;">
@@ -1298,7 +1295,7 @@
             RG.ui.currentTab = tabName;
 
             if (tabName === 'editor' && RG.currentProject.videos.length > 0) {
-                loadPreview();
+                if (!PV.video) initPreview(); else refreshPreview();
             }
         }
 
@@ -1582,6 +1579,7 @@
                     const i = parseInt(el.dataset.idx);
                     RG.cache.scenes[i].selected = RG.cache.scenes[i].selected === false;
                     renderSceneList();
+                    if (typeof refreshPreview === 'function') refreshPreview();
                 });
             });
         }
@@ -1603,6 +1601,7 @@
                 if (DOM.hookInput) DOM.hookInput.value = hook;
                 RG.currentProject.timeline.hook = hook;
                 RG.currentProject.timeline.hookConfig = optimizedConfig;
+                if (PV.ctx) pvDraw();
 
                 // Zeige Vorschlag an
                 showAlert(`✅ Hook-Vorschlag: "${hook}" (editierbar)`, 'success');
@@ -1691,7 +1690,7 @@
                 let result;
                 if (useReel) {
                     const targetSec = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
-                    const vidDur = (previewVideo && isFinite(previewVideo.duration) && previewVideo.duration) ||
+                    const vidDur = (PV.video && isFinite(PV.video.duration) && PV.video.duration) ||
                                    Math.max(...RG.cache.scenes.map(s => Number(s.endTime ?? s.end ?? 0)), targetSec);
                     const beatSec = (RG.currentProject.music && RG.cache.bpm) ? 60 / RG.cache.bpm : null;
                     const segments = buildReelSegments(RG.cache.scenes, vidDur, targetSec, beatSec);
@@ -1813,6 +1812,15 @@
             RG.settings.enableSubtitles = e.target.checked;
         });
 
+        // Hook-Stile aus der Bibliothek befüllen
+        (function populateHookStyles() {
+            const sel = document.getElementById('hookStyleSelect');
+            if (sel && typeof HookGenerator !== 'undefined' && HookGenerator.getStyles) {
+                sel.innerHTML = HookGenerator.getStyles()
+                    .map(s => `<option value="${s.value}">${s.label}</option>`).join('');
+            }
+        })();
+
         // Analysis & Export
         DOM.btnAnalyze.addEventListener('click', analyzeVideos);
         DOM.btnGenerateHook.addEventListener('click', generateHook);
@@ -1855,7 +1863,9 @@
             }
         }
 
-        // ===== PREVIEW / PLAYER =====
+        // ===== LIVE-VORSCHAU (WYSIWYG auf Canvas) =====
+        // Zeigt genau das, was exportiert wird: gewählte Szenen, Format/Seitenverhältnis,
+        // Filter, Hook, Text-Overlay, Untertitel und Fade – live und auch im Standbild.
         const CSS_FILTERS = {
             none:    { label: 'Aus',      css: 'none' },
             vivid:   { label: 'Vivid',    css: 'saturate(1.5) contrast(1.1)' },
@@ -1864,7 +1874,6 @@
             bw:      { label: 'S/W',      css: 'grayscale(1) contrast(1.1)' },
             vintage: { label: 'Vintage',  css: 'sepia(0.5) contrast(0.9) brightness(1.05)' }
         };
-        let previewVideo = null;
 
         function fmtTime(t) {
             t = Math.max(0, Math.floor(t || 0));
@@ -1872,56 +1881,161 @@
             return `${m}:${String(s).padStart(2, '0')}`;
         }
 
-        function loadPreview() {
-            const video = RG.currentProject.videos[0];
-            if (!video) return;
-            // <video> nur einmal anlegen
-            if (!previewVideo || !DOM.previewCanvas.contains(previewVideo)) {
-                DOM.previewCanvas.innerHTML = '';
-                previewVideo = document.createElement('video');
-                previewVideo.setAttribute('playsinline', '');
-                previewVideo.preload = 'auto';
-                previewVideo.style.borderRadius = '8px';
-                DOM.previewCanvas.appendChild(previewVideo);
+        const PV = { video: null, canvas: null, ctx: null, segs: [], idx: 0, playing: false, raf: 0, elapsed: 0, total: 0, last: 0, seeking: false };
 
-                previewVideo.addEventListener('loadedmetadata', () => {
-                    DOM.duration.textContent = fmtTime(previewVideo.duration);
-                    // Ein Standbild anzeigen (Chrome zeichnet den Frame erst nach einem Seek)
-                    try { previewVideo.currentTime = Math.min(0.1, (previewVideo.duration || 1) / 2); } catch (e) {}
-                });
-                previewVideo.addEventListener('timeupdate', () => {
-                    DOM.currentTime.textContent = fmtTime(previewVideo.currentTime);
-                    if (previewVideo.duration) {
-                        DOM.currentTimeSlider.value = (previewVideo.currentTime / previewVideo.duration) * 100;
-                    }
-                });
-                previewVideo.addEventListener('play', () => { DOM.btnPlayPause.textContent = '⏸ Pause'; RG.ui.isPlaying = true; });
-                previewVideo.addEventListener('pause', () => { DOM.btnPlayPause.textContent = '▶ Play'; RG.ui.isPlaying = false; });
-                previewVideo.addEventListener('ended', () => { DOM.btnPlayPause.textContent = '▶ Play'; RG.ui.isPlaying = false; });
-            }
-            const blob = video.data instanceof Blob ? video.data : new Blob([video.data], { type: video.type || 'video/mp4' });
-            previewVideo.src = URL.createObjectURL(blob);
-            applyPreviewFilter();
+        function pvAspect() {
+            const s = String((DOM.platformSelect && DOM.platformSelect.value) || 'tiktok').toLowerCase();
+            if (s.includes('1:1') || s.includes('square') || s.includes('quadrat')) return [1, 1];
+            if (s.includes('4:5') || s.includes('feed')) return [4, 5];
+            if (s.includes('16:9') || s.includes('landscape') || s.includes('quer') || s === 'twitter') return [16, 9];
+            return [9, 16];
         }
 
-        function applyPreviewFilter() {
-            if (!previewVideo) return;
+        function pvBuildSegs() {
+            const dur = (PV.video && isFinite(PV.video.duration) && PV.video.duration) || 60;
+            const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
+            const target = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
+            const beatSec = (RG.currentProject.music && RG.cache.bpm) ? 60 / RG.cache.bpm : null;
+            let segs = useReel ? buildReelSegments(RG.cache.scenes, dur, target, beatSec) : [{ start: 0, end: Math.min(dur, 60) }];
+            if (!segs.length) segs = [{ start: 0, end: Math.min(dur, 60) }];
+            return segs;
+        }
+
+        function pvDrawText(text, cyFactor, sizeFactor) {
+            const ctx = PV.ctx, W = PV.canvas.width, H = PV.canvas.height;
+            const fs = Math.max(14, Math.round(W * sizeFactor));
+            ctx.font = `900 ${fs}px 'Segoe UI', system-ui, Arial, sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const words = String(text).split(/\s+/), lines = []; let cur = '';
+            for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > W * 0.86 && cur) { lines.push(cur); cur = w; } else cur = t; }
+            if (cur) lines.push(cur);
+            lines.slice(0, 3).forEach((ln, i) => {
+                const y = H * cyFactor + i * fs * 1.15;
+                ctx.lineWidth = fs * 0.18; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(ln, W / 2, y);
+                ctx.fillStyle = '#fff'; ctx.fillText(ln, W / 2, y);
+            });
+        }
+
+        function pvDraw() {
+            if (!PV.ctx || !PV.video) return;
+            const ctx = PV.ctx, W = PV.canvas.width, H = PV.canvas.height, v = PV.video;
             const fx = RG.currentProject.effects || {};
-            const f = CSS_FILTERS[fx.filter] || CSS_FILTERS.none;
-            previewVideo.style.filter = f.css;
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+            const vw = v.videoWidth || W, vh = v.videoHeight || H, scale = Math.max(W / vw, H / vh), dw = vw * scale, dh = vh * scale;
+            ctx.filter = (CSS_FILTERS[fx.filter] || CSS_FILTERS.none).css;
+            try { ctx.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch (e) {}
+            ctx.filter = 'none';
+            const hook = (RG.currentProject.timeline && RG.currentProject.timeline.hook) || '';
+            if (hook && PV.elapsed < 3) pvDrawText(hook, 0.22, 0.075);
+            if (fx.textOverlay) pvDrawText(fx.textOverlay, 0.85, 0.05);
+            if (RG.currentProject.subsEnabled && Array.isArray(RG.currentProject.subtitles) && RG.currentProject.subtitles.length && PV.total) {
+                const subs = RG.currentProject.subtitles, ld = PV.total / subs.length;
+                const line = subs[Math.min(subs.length - 1, Math.floor(PV.elapsed / ld))];
+                if (line) pvDrawText(line, 0.92, 0.042);
+            }
+            // Fade nur während des Abspielens zeigen – im Standbild würde der
+            // Anfangs-Fade sonst alles schwarz machen (dann sieht man kein Overlay).
+            if (fx.fade && PV.playing) {
+                let a = 0;
+                if (PV.elapsed < 0.5) a = 1 - PV.elapsed / 0.5;
+                else if (PV.elapsed > PV.total - 0.5) a = (PV.elapsed - (PV.total - 0.5)) / 0.5;
+                if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a)})`; ctx.fillRect(0, 0, W, H); }
+            }
+            if (DOM.currentTime) DOM.currentTime.textContent = fmtTime(PV.elapsed);
+            if (DOM.duration) DOM.duration.textContent = fmtTime(PV.total);
+            if (DOM.currentTimeSlider && PV.total) DOM.currentTimeSlider.value = Math.min(100, (PV.elapsed / PV.total) * 100);
+        }
+
+        function pvSeek(t) {
+            return new Promise(res => { const on = () => { PV.video.removeEventListener('seeked', on); res(); }; PV.video.addEventListener('seeked', on); try { PV.video.currentTime = t; } catch (e) { res(); } });
+        }
+
+        function pvLoop() {
+            if (PV.video) {
+                if (PV.playing && !PV.seeking) {
+                    const now = performance.now(); PV.elapsed = Math.min(PV.total, PV.elapsed + (now - PV.last) / 1000); PV.last = now;
+                    const seg = PV.segs[PV.idx];
+                    if (seg && (PV.video.currentTime >= seg.end - 0.03 || PV.video.ended)) {
+                        PV.idx++;
+                        if (PV.idx >= PV.segs.length) { PV.idx = 0; PV.elapsed = 0; PV.seeking = true; pvSeek(PV.segs[0].start).then(() => { PV.seeking = false; PV.last = performance.now(); }); }
+                        else { PV.seeking = true; pvSeek(PV.segs[PV.idx].start).then(() => { PV.seeking = false; PV.last = performance.now(); }); }
+                    }
+                }
+                pvDraw();
+            }
+            PV.raf = requestAnimationFrame(pvLoop);
+        }
+
+        function pvSetCanvasSize() {
+            const [aw, ah] = pvAspect(), H = 540;
+            PV.canvas.height = H; PV.canvas.width = Math.round(H * aw / ah);
+            PV.canvas.style.maxWidth = '100%'; PV.canvas.style.maxHeight = '100%';
+            PV.canvas.style.width = 'auto'; PV.canvas.style.height = 'auto';
+        }
+
+        function initPreview() {
+            const video = RG.currentProject.videos[0];
+            if (!video) return;
+            if (!PV.canvas || !DOM.previewCanvas.contains(PV.canvas)) {
+                DOM.previewCanvas.innerHTML = '';
+                PV.video = document.createElement('video');
+                PV.video.setAttribute('playsinline', ''); PV.video.preload = 'auto'; PV.video.style.display = 'none';
+                PV.canvas = document.createElement('canvas');
+                PV.canvas.style.borderRadius = '8px'; PV.canvas.style.background = '#000';
+                DOM.previewCanvas.appendChild(PV.video);
+                DOM.previewCanvas.appendChild(PV.canvas);
+                PV.ctx = PV.canvas.getContext('2d');
+                pvSetCanvasSize();
+                PV.video.addEventListener('loadedmetadata', () => { refreshPreview(); });
+                if (!PV.raf) PV.raf = requestAnimationFrame(pvLoop);
+            }
+            const blob = video.data instanceof Blob ? video.data : new Blob([video.data], { type: video.type || 'video/mp4' });
+            PV.video.src = URL.createObjectURL(blob);
+        }
+
+        // Baut Segmente/Format neu aus den aktuellen Einstellungen und zeigt ein Standbild
+        async function refreshPreview() {
+            if (!PV.video) return;
+            pvSetCanvasSize();
+            PV.segs = pvBuildSegs();
+            PV.total = PV.segs.reduce((s, x) => s + (x.end - x.start), 0);
+            PV.idx = 0; PV.elapsed = 0;
+            if (DOM.reelInfo) DOM.reelInfo.textContent = `Vorschau: ${PV.segs.length} Szene(n) · ~${PV.total.toFixed(0)}s · ${pvAspect().join(':')}`;
+            PV.seeking = true; await pvSeek(PV.segs[0].start); PV.seeking = false; PV.last = performance.now();
+            pvDraw();
+        }
+
+        function pvPlay() {
+            if (!PV.video) return;
+            PV.playing = true; PV.last = performance.now();
+            try { PV.video.play(); } catch (e) {}
+            DOM.btnPlayPause.textContent = '⏸ Pause';
+            if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '⏹ Vorschau stoppen';
+        }
+        function pvPause() {
+            PV.playing = false;
+            if (PV.video) { try { PV.video.pause(); } catch (e) {} }
+            DOM.btnPlayPause.textContent = '▶ Play';
+            if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '👁 Reel-Vorschau';
         }
 
         function togglePlay() {
-            if (!previewVideo) { showAlert('Bitte zuerst ein Video laden.', 'danger'); return; }
-            if (typeof reelPreviewSegs !== 'undefined' && reelPreviewSegs) stopReelPreview();
-            if (previewVideo.paused) previewVideo.play(); else previewVideo.pause();
+            if (!PV.video) { showAlert('Bitte zuerst ein Video laden.', 'danger'); return; }
+            if (PV.playing) pvPause(); else pvPlay();
         }
 
         DOM.btnPlayPause.addEventListener('click', togglePlay);
-        DOM.currentTimeSlider.addEventListener('input', (e) => {
-            if (previewVideo && previewVideo.duration) {
-                previewVideo.currentTime = (e.target.value / 100) * previewVideo.duration;
+        DOM.currentTimeSlider.addEventListener('input', async (e) => {
+            if (!PV.segs.length || !PV.total) return;
+            pvPause();
+            PV.elapsed = (e.target.value / 100) * PV.total;
+            let acc = 0, idx = 0, tIn = 0;
+            for (let i = 0; i < PV.segs.length; i++) {
+                const d = PV.segs[i].end - PV.segs[i].start;
+                if (PV.elapsed <= acc + d || i === PV.segs.length - 1) { idx = i; tIn = PV.elapsed - acc; break; }
+                acc += d;
             }
+            PV.idx = idx; PV.seeking = true; await pvSeek(PV.segs[idx].start + Math.max(0, tIn)); PV.seeking = false; pvDraw();
         });
 
         // ===== EFFEKTE =====
@@ -1931,20 +2045,22 @@
             const next = keys[(keys.indexOf(cur) + 1) % keys.length];
             RG.currentProject.effects.filter = next;
             DOM.btnFxFilter.textContent = '🌈 Filter: ' + CSS_FILTERS[next].label;
-            applyPreviewFilter();
+            if (PV.ctx) pvDraw();
         });
         DOM.btnFxTransition.addEventListener('click', () => {
             const on = !RG.currentProject.effects.fade;
             RG.currentProject.effects.fade = on;
             DOM.btnFxTransition.textContent = '✂️ Übergang (Fade): ' + (on ? 'An' : 'Aus');
-            showAlert(on ? 'Ein-/Ausblenden wird beim Export angewendet.' : 'Übergang aus.', 'info');
+            if (typeof refreshPreview === 'function') refreshPreview();
+            showAlert(on ? 'Ein-/Ausblenden – im Abspielen sichtbar.' : 'Übergang aus.', 'info');
         });
         DOM.btnFxText.addEventListener('click', () => {
             const txt = prompt('Text-Overlay (unten im Video):', RG.currentProject.effects.textOverlay || '');
             if (txt === null) return;
             RG.currentProject.effects.textOverlay = txt;
             DOM.btnFxText.textContent = txt ? '📝 Text: ' + txt.slice(0, 14) : '📝 Text-Overlay';
-            showAlert(txt ? 'Text-Overlay gesetzt (erscheint im Export).' : 'Text-Overlay entfernt.', 'info');
+            if (PV.ctx) pvDraw();
+            showAlert(txt ? 'Text-Overlay gesetzt (in der Vorschau sichtbar).' : 'Text-Overlay entfernt.', 'info');
         });
         DOM.btnFxSound.addEventListener('click', () => {
             const on = !RG.currentProject.effects.audioFade;
@@ -1952,18 +2068,25 @@
             DOM.btnFxSound.textContent = '🔊 Ton ausblenden: ' + (on ? 'An' : 'Aus');
         });
 
-        // Hook editierbar: Eingabe übernimmt sofort in die Timeline
+        // Hook editierbar: Eingabe übernimmt sofort in die Timeline + Vorschau
         if (DOM.hookInput) {
             DOM.hookInput.addEventListener('input', (e) => {
                 RG.currentProject.timeline.hook = e.target.value;
+                if (PV.ctx) pvDraw();
             });
         }
+
+        // Format / Reel-Länge / Auto-Reel ändern -> Vorschau neu aufbauen
+        if (DOM.platformSelect) DOM.platformSelect.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
+        if (DOM.reelLength) DOM.reelLength.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
+        if (DOM.reelMode) DOM.reelMode.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
 
         // Untertitel (optional)
         function syncSubs() {
             RG.currentProject.subsEnabled = !!(DOM.enableSubs && DOM.enableSubs.checked);
             RG.currentProject.subtitles = (DOM.subsText ? DOM.subsText.value : '')
                 .split('\n').map(l => l.trim()).filter(Boolean);
+            if (PV.ctx) pvDraw();
         }
         if (DOM.enableSubs) DOM.enableSubs.addEventListener('change', syncSubs);
         if (DOM.subsText) DOM.subsText.addEventListener('input', syncSubs);
@@ -2010,6 +2133,7 @@
                     RG.cache.scenes.forEach((s, i) => { s.selected = keep.has(i); });
                     renderSceneList();
                 }
+                if (typeof refreshPreview === 'function') refreshPreview();
                 showAlert('✨ Von Claude verbessert – Hook, Text, Hashtags & beste Szenen übernommen.', 'success');
             } catch (err) {
                 console.error('AI enhance failed:', err);
@@ -2086,85 +2210,16 @@
         }
         if (DOM.btnAutoSubs) DOM.btnAutoSubs.addEventListener('click', autoSubtitles);
 
-        // ===== REEL-VORSCHAU (ohne Export) =====
-        let reelPreviewRAF = null, reelPreviewSegs = null, reelPreviewIdx = 0, reelPreviewStart = 0;
-
-        function ensurePreviewOverlay() {
-            let ov = document.getElementById('previewOverlay');
-            if (!ov) {
-                DOM.previewCanvas.style.position = 'relative';
-                ov = document.createElement('div');
-                ov.id = 'previewOverlay';
-                ov.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
-                ov.innerHTML =
-                    '<div id="ovHook" style="position:absolute;top:14%;left:0;right:0;text-align:center;padding:0 7%;' +
-                    'font-family:Barlow,sans-serif;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.95);' +
-                    'font-size:clamp(16px,4vw,34px);display:none;"></div>' +
-                    '<div id="ovText" style="position:absolute;bottom:9%;left:0;right:0;text-align:center;padding:0 7%;' +
-                    'font-family:Barlow,sans-serif;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.95);' +
-                    'font-size:clamp(12px,3vw,24px);display:none;"></div>';
-                DOM.previewCanvas.appendChild(ov);
-            }
-            return ov;
-        }
-
-        function stopReelPreview() {
-            if (reelPreviewRAF) cancelAnimationFrame(reelPreviewRAF);
-            reelPreviewRAF = null; reelPreviewSegs = null;
-            if (previewVideo) previewVideo.pause();
-            const ov = document.getElementById('previewOverlay');
-            if (ov) { ov.querySelector('#ovHook').style.display = 'none'; ov.querySelector('#ovText').style.display = 'none'; }
-            if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '👁 Reel-Vorschau';
-        }
-
+        // ===== REEL-VORSCHAU (baut aus aktuellen Einstellungen, spielt ab) =====
         async function toggleReelPreview() {
-            if (reelPreviewSegs) { stopReelPreview(); return; }
+            if (PV.playing) { pvPause(); return; }
             if (RG.currentProject.videos.length === 0) { showAlert('Bitte zuerst ein Video laden & analysieren.', 'danger'); return; }
             if (RG.ui.currentTab !== 'editor') switchTab('editor');
-            if (!previewVideo) loadPreview();
-            await new Promise(r => setTimeout(r, 200));
-
-            const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
-            const vidDur = (previewVideo && isFinite(previewVideo.duration) && previewVideo.duration) || 60;
-            const target = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
-            const beatSec = (RG.currentProject.music && RG.cache.bpm) ? 60 / RG.cache.bpm : null;
-            let segs = useReel ? buildReelSegments(RG.cache.scenes, vidDur, target, beatSec) : [{ start: 0, end: Math.min(vidDur, 60) }];
-            if (!segs.length) segs = [{ start: 0, end: Math.min(vidDur, 60) }];
-            reelPreviewSegs = segs;
-            reelPreviewIdx = 0;
-
-            const total = segs.reduce((s, x) => s + (x.end - x.start), 0);
-            if (DOM.reelInfo) DOM.reelInfo.textContent = `Reel-Vorschau: ${segs.length} Szene(n) · ~${total.toFixed(0)}s`;
-
-            applyPreviewFilter();
-            const ov = ensurePreviewOverlay();
-            const hookEl = ov.querySelector('#ovHook'), txtEl = ov.querySelector('#ovText');
-            const hookText = (RG.currentProject.timeline && RG.currentProject.timeline.hook) || '';
-            const overlayText = (RG.currentProject.effects && RG.currentProject.effects.textOverlay) || '';
-            hookEl.textContent = hookText;
-            txtEl.textContent = overlayText;
-            txtEl.style.display = overlayText ? 'block' : 'none';
-
-            DOM.btnPreviewReel.textContent = '⏹ Vorschau stoppen';
-
-            await new Promise(res => { const on = () => { previewVideo.removeEventListener('seeked', on); res(); }; previewVideo.addEventListener('seeked', on); previewVideo.currentTime = segs[0].start; });
-            try { await previewVideo.play(); } catch (e) {}
-
-            let last = performance.now(); let outElapsed = 0;
-            const step = () => {
-                if (!reelPreviewSegs) return;
-                const now = performance.now(); outElapsed += (now - last) / 1000; last = now;
-                hookEl.style.display = (hookText && outElapsed < 3) ? 'block' : 'none';
-                const seg = reelPreviewSegs[reelPreviewIdx];
-                if (previewVideo.currentTime >= seg.end - 0.03 || previewVideo.ended) {
-                    reelPreviewIdx++;
-                    if (reelPreviewIdx >= reelPreviewSegs.length) { stopReelPreview(); showAlert('Vorschau beendet – bereit zum Export.', 'info'); return; }
-                    previewVideo.currentTime = reelPreviewSegs[reelPreviewIdx].start;
-                }
-                reelPreviewRAF = requestAnimationFrame(step);
-            };
-            reelPreviewRAF = requestAnimationFrame(step);
+            if (!PV.video) { initPreview(); await new Promise(r => setTimeout(r, 350)); }
+            await refreshPreview();
+            pvPlay();
         }
+        function stopReelPreview() { pvPause(); }
 
         if (DOM.btnPreviewReel) DOM.btnPreviewReel.addEventListener('click', toggleReelPreview);
 
