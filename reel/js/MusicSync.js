@@ -5,16 +5,15 @@ const MusicSync = (() => {
     const MIN_BPM = 60;
     const MAX_BPM = 200;
 
-    // Dekodiere Audio-Daten
+    // Dekodiere Audio-Daten (nimmt Blob, ArrayBuffer oder TypedArray)
     async function decodeAudio(audioData) {
+        let buf;
+        if (audioData instanceof Blob) buf = await audioData.arrayBuffer();
+        else if (audioData instanceof ArrayBuffer) buf = audioData.slice(0);
+        else if (audioData && audioData.buffer instanceof ArrayBuffer) buf = audioData.buffer.slice(0);
+        else throw new Error('Ungültige Audiodaten');
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        return new Promise((resolve, reject) => {
-            audioContext.decodeAudioData(
-                audioData.slice(0),
-                resolve,
-                reject
-            );
-        });
+        return await audioContext.decodeAudioData(buf);
     }
 
     // Erkenne BPM mittels Onset Detection
