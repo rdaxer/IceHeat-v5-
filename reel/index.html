@@ -775,11 +775,13 @@
                     <!-- PLAYER CONTROLS -->
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <button class="btn btn-ghost btn-sm" id="btnPlayPause">▶ Play</button>
+                        <button class="btn btn-primary btn-sm" id="btnPreviewReel">👁 Reel-Vorschau</button>
                         <input type="range" id="currentTimeSlider" style="flex: 1; cursor: pointer;" min="0" max="100" value="0">
                         <span style="font-size: 11px; color: var(--muted);">
                             <span id="currentTime">0:00</span> / <span id="duration">0:00</span>
                         </span>
                     </div>
+                    <div id="reelInfo" style="font-size: 11px; color: var(--muted); margin-top: 4px;"></div>
 
                     <!-- TIMELINE -->
                     <div class="timeline">
@@ -793,10 +795,12 @@
                     <div class="sidebar-section">
                         <div class="sidebar-title">🎣 Hook Generator</div>
                         <button class="btn btn-primary" style="width: 100%;" id="btnGenerateHook">
-                            Hook generieren
+                            Hook vorschlagen
                         </button>
-                        <div style="background: var(--surface2); padding: 8px; border-radius: 4px; min-height: 40px; border: 1px solid var(--border); font-size: 11px; color: var(--muted);" id="hookPreview">
-                            Hook erscheint hier...
+                        <input type="text" class="form-input" id="hookInput" placeholder="Hook-Text (editierbar)…"
+                            style="width:100%; margin-top:6px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px; font-size:12px;">
+                        <div style="font-size: 10px; color: var(--muted); margin-top:4px;" id="hookPreview">
+                            Tipp: Vorschlagen klicken oder eigenen Text tippen.
                         </div>
                     </div>
 
@@ -1148,6 +1152,9 @@
             timelineTrack: document.getElementById('timelineTrack'),
             hookPreview: document.getElementById('hookPreview'),
             btnGenerateHook: document.getElementById('btnGenerateHook'),
+            hookInput: document.getElementById('hookInput'),
+            btnPreviewReel: document.getElementById('btnPreviewReel'),
+            reelInfo: document.getElementById('reelInfo'),
             btnMusicSync: document.getElementById('btnMusicSync'),
             sceneList: document.getElementById('sceneList'),
             btnFxFilter: document.getElementById('btnFxFilter'),
@@ -1491,12 +1498,12 @@
                 const platform = document.getElementById('platformSelect').value;
                 const optimizedConfig = HookGenerator.optimizeForPlatform(hookConfig, platform);
 
-                DOM.hookPreview.textContent = hook;
+                if (DOM.hookInput) DOM.hookInput.value = hook;
                 RG.currentProject.timeline.hook = hook;
                 RG.currentProject.timeline.hookConfig = optimizedConfig;
 
                 // Zeige Vorschlag an
-                showAlert(`✅ Hook generiert: "${hook}"`, 'success');
+                showAlert(`✅ Hook-Vorschlag: "${hook}" (editierbar)`, 'success');
             } catch (err) {
                 console.error('Hook generation error:', err);
                 showAlert('Hook-Generierung fehlgeschlagen', 'danger');
@@ -1756,6 +1763,7 @@
 
         function togglePlay() {
             if (!previewVideo) { showAlert('Bitte zuerst ein Video laden.', 'danger'); return; }
+            if (typeof reelPreviewSegs !== 'undefined' && reelPreviewSegs) stopReelPreview();
             if (previewVideo.paused) previewVideo.play(); else previewVideo.pause();
         }
 
@@ -1793,6 +1801,94 @@
             RG.currentProject.effects.audioFade = on;
             DOM.btnFxSound.textContent = '🔊 Ton ausblenden: ' + (on ? 'An' : 'Aus');
         });
+
+        // Hook editierbar: Eingabe übernimmt sofort in die Timeline
+        if (DOM.hookInput) {
+            DOM.hookInput.addEventListener('input', (e) => {
+                RG.currentProject.timeline.hook = e.target.value;
+            });
+        }
+
+        // ===== REEL-VORSCHAU (ohne Export) =====
+        let reelPreviewRAF = null, reelPreviewSegs = null, reelPreviewIdx = 0, reelPreviewStart = 0;
+
+        function ensurePreviewOverlay() {
+            let ov = document.getElementById('previewOverlay');
+            if (!ov) {
+                DOM.previewCanvas.style.position = 'relative';
+                ov = document.createElement('div');
+                ov.id = 'previewOverlay';
+                ov.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+                ov.innerHTML =
+                    '<div id="ovHook" style="position:absolute;top:14%;left:0;right:0;text-align:center;padding:0 7%;' +
+                    'font-family:Barlow,sans-serif;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.95);' +
+                    'font-size:clamp(16px,4vw,34px);display:none;"></div>' +
+                    '<div id="ovText" style="position:absolute;bottom:9%;left:0;right:0;text-align:center;padding:0 7%;' +
+                    'font-family:Barlow,sans-serif;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.95);' +
+                    'font-size:clamp(12px,3vw,24px);display:none;"></div>';
+                DOM.previewCanvas.appendChild(ov);
+            }
+            return ov;
+        }
+
+        function stopReelPreview() {
+            if (reelPreviewRAF) cancelAnimationFrame(reelPreviewRAF);
+            reelPreviewRAF = null; reelPreviewSegs = null;
+            if (previewVideo) previewVideo.pause();
+            const ov = document.getElementById('previewOverlay');
+            if (ov) { ov.querySelector('#ovHook').style.display = 'none'; ov.querySelector('#ovText').style.display = 'none'; }
+            if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '👁 Reel-Vorschau';
+        }
+
+        async function toggleReelPreview() {
+            if (reelPreviewSegs) { stopReelPreview(); return; }
+            if (RG.currentProject.videos.length === 0) { showAlert('Bitte zuerst ein Video laden & analysieren.', 'danger'); return; }
+            if (RG.ui.currentTab !== 'editor') switchTab('editor');
+            if (!previewVideo) loadPreview();
+            await new Promise(r => setTimeout(r, 200));
+
+            const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
+            const vidDur = (previewVideo && isFinite(previewVideo.duration) && previewVideo.duration) || 60;
+            const target = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
+            let segs = useReel ? buildReelSegments(RG.cache.scenes, vidDur, target) : [{ start: 0, end: Math.min(vidDur, 60) }];
+            if (!segs.length) segs = [{ start: 0, end: Math.min(vidDur, 60) }];
+            reelPreviewSegs = segs;
+            reelPreviewIdx = 0;
+
+            const total = segs.reduce((s, x) => s + (x.end - x.start), 0);
+            if (DOM.reelInfo) DOM.reelInfo.textContent = `Reel-Vorschau: ${segs.length} Szene(n) · ~${total.toFixed(0)}s`;
+
+            applyPreviewFilter();
+            const ov = ensurePreviewOverlay();
+            const hookEl = ov.querySelector('#ovHook'), txtEl = ov.querySelector('#ovText');
+            const hookText = (RG.currentProject.timeline && RG.currentProject.timeline.hook) || '';
+            const overlayText = (RG.currentProject.effects && RG.currentProject.effects.textOverlay) || '';
+            hookEl.textContent = hookText;
+            txtEl.textContent = overlayText;
+            txtEl.style.display = overlayText ? 'block' : 'none';
+
+            DOM.btnPreviewReel.textContent = '⏹ Vorschau stoppen';
+
+            await new Promise(res => { const on = () => { previewVideo.removeEventListener('seeked', on); res(); }; previewVideo.addEventListener('seeked', on); previewVideo.currentTime = segs[0].start; });
+            try { await previewVideo.play(); } catch (e) {}
+
+            let last = performance.now(); let outElapsed = 0;
+            const step = () => {
+                if (!reelPreviewSegs) return;
+                const now = performance.now(); outElapsed += (now - last) / 1000; last = now;
+                hookEl.style.display = (hookText && outElapsed < 3) ? 'block' : 'none';
+                const seg = reelPreviewSegs[reelPreviewIdx];
+                if (previewVideo.currentTime >= seg.end - 0.03 || previewVideo.ended) {
+                    reelPreviewIdx++;
+                    if (reelPreviewIdx >= reelPreviewSegs.length) { stopReelPreview(); showAlert('Vorschau beendet – bereit zum Export.', 'info'); return; }
+                    previewVideo.currentTime = reelPreviewSegs[reelPreviewIdx].start;
+                }
+                reelPreviewRAF = requestAnimationFrame(step);
+            };
+            reelPreviewRAF = requestAnimationFrame(step);
+        }
+
+        if (DOM.btnPreviewReel) DOM.btnPreviewReel.addEventListener('click', toggleReelPreview);
 
         // ===== FILMORA =====
         async function openInFilmora() {
