@@ -237,9 +237,13 @@ const ExportManager = (() => {
     // segments: [{ start, end }] in Sekunden, chronologisch.
     async function exportReel(project, segments, options = {}, onProgress = () => {}) {
         if (!window.MediaRecorder) throw new Error('MediaRecorder wird nicht unterstützt');
-        const video = project && project.videos && project.videos[0];
-        if (!video) throw new Error('Kein Video vorhanden');
-        segments = (segments || []).filter(s => s && s.end > s.start).sort((a, b) => a.start - b.start);
+        const videos = (project && project.videos) || [];
+        if (!videos.length) throw new Error('Kein Video vorhanden');
+        // Segmente können aus mehreren Quell-Videos stammen (videoIndex).
+        // Nach Video gruppieren (minimiert Quell-Wechsel), darin chronologisch.
+        segments = (segments || []).filter(s => s && s.end > s.start)
+            .map(s => ({ start: s.start, end: s.end, videoIndex: s.videoIndex || 0 }))
+            .sort((a, b) => (a.videoIndex - b.videoIndex) || (a.start - b.start));
         if (!segments.length) throw new Error('Keine Szenen ausgewählt');
 
         const fps = parseInt(options.fps) || 30;
@@ -249,13 +253,22 @@ const ExportManager = (() => {
         const outW = Math.round(height * aw / ah / 2) * 2;
         const totalOut = segments.reduce((s, seg) => s + (seg.end - seg.start), 0);
 
+        // Ein Video-Element, dessen Quelle bei Bedarf gewechselt wird. Die
+        // MediaElementSource (Audio) bleibt über src-Wechsel hinweg gültig.
         const vEl = document.createElement('video');
         vEl.playsInline = true;
-        vEl.src = URL.createObjectURL(blobFromMedia(video));
-        await new Promise((res, rej) => {
-            vEl.onloadedmetadata = res;
-            vEl.onerror = () => rej(new Error('Video konnte nicht geladen werden'));
-        });
+        let curVid = -1, curUrl = null;
+        function loadVid(idx) {
+            return new Promise((res, rej) => {
+                const v = videos[idx] || videos[0];
+                try { if (curUrl) URL.revokeObjectURL(curUrl); } catch (e) {}
+                curUrl = URL.createObjectURL(blobFromMedia(v));
+                vEl.onloadedmetadata = () => { curVid = idx; res(); };
+                vEl.onerror = () => rej(new Error('Video konnte nicht geladen werden'));
+                vEl.src = curUrl;
+            });
+        }
+        await loadVid(segments[0].videoIndex || 0);
 
         const canvas = document.createElement('canvas');
         canvas.width = outW; canvas.height = outH;
@@ -320,7 +333,7 @@ const ExportManager = (() => {
                 const dw = vw * scale, dh = vh * scale;
                 ctx.fillStyle = '#000'; ctx.fillRect(0, 0, outW, outH);
                 ctx.filter = filterCss;
-                ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
+                try { ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh); } catch (e) {}
                 ctx.filter = 'none';
                 if (hookText && outElapsed < hookDur) drawText(hookText, outH * 0.25, 0.075);
                 if (overlayText) drawText(overlayText, outH * 0.86, 0.055);
@@ -350,7 +363,18 @@ const ExportManager = (() => {
                         vEl.pause(); if (musicEl) musicEl.pause();
                         return;
                     }
-                    seeking = true; await seekTo(segments[segIdx].start); seeking = false; last = performance.now();
+                    const nx = segments[segIdx];
+                    seeking = true;
+                    if ((nx.videoIndex || 0) !== curVid) {
+                        // Quelle wechseln (nächstes Video)
+                        try { vEl.pause(); } catch (e) {}
+                        await loadVid(nx.videoIndex || 0);
+                        await seekTo(nx.start);
+                        try { await vEl.play(); } catch (e) {}
+                    } else {
+                        await seekTo(nx.start);
+                    }
+                    seeking = false; last = performance.now();
                 }
                 requestAnimationFrame(tick);
             }

@@ -848,6 +848,20 @@
                     </div>
 
                     <div class="sidebar-section">
+                        <div class="sidebar-title">🎬 Reel-Länge</div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="number" id="reelLengthEditor" min="5" max="300" step="5" value="60"
+                                style="width:72px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:6px; font-size:12px;">
+                            <span style="font-size:11px; color:var(--muted);">Sekunden max.</span>
+                        </div>
+                        <div id="reelEstimate" style="font-size:10px; color:var(--muted); margin-top:6px;"></div>
+                        <p style="font-size:10px; color:var(--muted); margin-top:4px;">
+                            Viele gute Szenen werden automatisch gekürzt, damit möglichst viele
+                            Highlights aller Videos ins Reel passen – das macht es spannender.
+                        </p>
+                    </div>
+
+                    <div class="sidebar-section">
                         <div class="sidebar-title">📝 Szenen</div>
                         <div style="display: flex; flex-direction: column; gap: 6px;" id="sceneList">
                             <div style="font-size: 10px; color: var(--muted);">Keine Szenen erkannt</div>
@@ -1058,14 +1072,12 @@
                     </label>
                     <div style="display:flex; align-items:center; gap:8px; font-size: 12px; color: var(--muted);">
                         <span>Maximale Länge:</span>
-                        <select class="form-select" id="reelLength" style="width:auto; flex:1;">
-                            <option value="30">30 Sekunden</option>
-                            <option value="60" selected>60 Sekunden</option>
-                            <option value="90">90 Sekunden</option>
-                            <option value="180">3 Minuten</option>
-                        </select>
+                        <input type="number" id="reelLength" min="5" max="300" step="5" value="60"
+                            style="width:72px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:6px; font-size:12px;">
+                        <span>Sekunden (5–300)</span>
                     </div>
                     <p style="font-size: 10px; color: var(--muted); margin-top: 8px;">
+                        Beste Szenen aller Videos werden automatisch gekürzt & zusammengeschnitten.
                         Ohne Auto-Reel wird das gesamte Video (bis 60 s) mit Hook exportiert.
                     </p>
                 </div>
@@ -1190,7 +1202,8 @@
                     beatSync: true
                 },
                 subsEnabled: false,
-                subtitles: []
+                subtitles: [],
+                reelLength: 60
             },
             settings: {
                 platform: 'tiktok',
@@ -1298,6 +1311,8 @@
             enableWfp: document.getElementById('enableWfp'),
             reelMode: document.getElementById('reelMode'),
             reelLength: document.getElementById('reelLength'),
+            reelLengthEditor: document.getElementById('reelLengthEditor'),
+            reelEstimate: document.getElementById('reelEstimate'),
             projectsList: document.getElementById('projectsList'),
 
             // Modal
@@ -1512,21 +1527,27 @@
 
             setLoading(true);
             try {
-                showAlert('Analysiere Video für beste Szenen...', 'info');
+                const vids = RG.currentProject.videos;
+                showAlert(`Analysiere ${vids.length} Video${vids.length > 1 ? 's' : ''} für beste Szenen…`, 'info');
 
-                const video = RG.currentProject.videos[0];
-
-                // Nutze SceneAnalyzer für intelligente Szenenanalyse
-                const scenes = await SceneAnalyzer.detectScenes(
-                    {data: video.data, type: video.type},
-                    {maxFrames: 50, histogramThreshold: 30}
-                );
-
-                if (scenes.length > 0) {
-                    // Konvertiere zu RG-Format und sortiere nach Qualität
-                    RG.cache.scenes = scenes
-                        .map((scene, idx) => ({
-                            id: idx,
+                // Alle Videos analysieren – Szenen aller Clips sammeln (mit Quell-Index)
+                const all = [];
+                const videoDurations = [];
+                for (let vi = 0; vi < vids.length; vi++) {
+                    const video = vids[vi];
+                    let scenes = [];
+                    try {
+                        scenes = await SceneAnalyzer.detectScenes(
+                            {data: video.data, type: video.type},
+                            {maxFrames: 50, histogramThreshold: 30}
+                        );
+                    } catch (e) { console.warn('Analyse Video ' + vi + ':', e); }
+                    let maxEnd = 0;
+                    scenes.forEach(scene => {
+                        maxEnd = Math.max(maxEnd, scene.endTime || 0);
+                        all.push({
+                            id: all.length,
+                            videoIndex: vi,
                             startTime: scene.startTime,
                             endTime: scene.endTime,
                             duration: scene.duration,
@@ -1535,10 +1556,17 @@
                             motion: scene.motion,
                             thumbnail: scene.thumbnail || null,
                             selected: true
-                        }))
-                        .sort((a, b) => b.quality - a.quality);
+                        });
+                    });
+                    videoDurations[vi] = maxEnd;
+                }
+                RG.cache.videoDurations = videoDurations;
 
-                    showAlert(`✅ ${scenes.length} Szenen erkannt! Wähle/entferne sie im Editor.`, 'success');
+                if (all.length > 0) {
+                    // Beste zuerst (über alle Videos hinweg)
+                    RG.cache.scenes = all.sort((a, b) => b.quality - a.quality);
+                    const src = vids.length > 1 ? ` aus ${vids.length} Videos` : '';
+                    showAlert(`✅ ${all.length} Szenen${src} erkannt! Wähle/entferne sie im Editor.`, 'success');
                 } else {
                     // Fallback: Demo-Szenen
                     RG.cache.scenes = [
@@ -1611,7 +1639,7 @@
                     <input type="checkbox" ${on ? 'checked' : ''} style="pointer-events:none;">
                     ${thumb}
                     <div style="flex:1;min-width:0;font-size:10px;">
-                        <div style="font-weight:700;color:var(--ice);">Szene ${idx + 1}</div>
+                        <div style="font-weight:700;color:var(--ice);">${(RG.currentProject.videos.length > 1 && scene.videoIndex != null) ? `Video ${scene.videoIndex + 1} · ` : ''}Szene ${idx + 1}</div>
                         <div style="color:var(--muted);">${start.toFixed(1)}–${end.toFixed(1)}s · ${(quality * 100).toFixed(0)}%</div>
                     </div>
                 </div>`;
@@ -1655,50 +1683,86 @@
 
         // Wählt die besten Szenen aus und macht daraus zusammenhängende Segmente
         // (chronologisch), bis die Ziel-Länge erreicht ist. Max. 3 Minuten.
-        function buildReelSegments(scenes, videoDuration, targetSec, beatSec) {
+        // Gewünschte maximale Reel-Länge (Editor & Export-Feld synchron)
+        function getReelLength() {
+            const v = parseInt(DOM.reelLength && DOM.reelLength.value) ||
+                      parseInt(DOM.reelLengthEditor && DOM.reelLengthEditor.value) ||
+                      RG.currentProject.reelLength || 60;
+            return Math.min(300, Math.max(5, v));
+        }
+
+        // Zeigt im Editor, wie viele Highlight-Clips ins Reel passen
+        function updateReelEstimate() {
+            if (!DOM.reelEstimate) return;
+            if (!RG.cache.scenes || !RG.cache.scenes.length) { DOM.reelEstimate.textContent = ''; return; }
+            const segs = PV.segs && PV.segs.length ? PV.segs : null;
+            if (segs) {
+                const total = segs.reduce((s, x) => s + (x.end - x.start), 0);
+                const avg = total / segs.length;
+                DOM.reelEstimate.textContent = `≈ ${segs.length} Highlight-Clips · ~${total.toFixed(0)}s (Ø ${avg.toFixed(1)}s/Clip)`;
+            } else {
+                DOM.reelEstimate.textContent = '';
+            }
+        }
+
+        // videoDurations: Array (pro Video) | Zahl | undefined
+        function buildReelSegments(scenes, videoDurations, targetSec, beatSec) {
             if (!scenes || !scenes.length) return [];
             // Nur manuell ausgewählte Szenen (Standard: alle ausgewählt)
             scenes = scenes.filter(s => s.selected !== false);
             if (!scenes.length) return [];
-            targetSec = Math.min(Math.max(targetSec || 60, 5), 180);
-            const MINLEN = 2.0; // Mindestlänge pro Segment (keine 0,5s-Zuckungen)
-            const dur = isFinite(videoDuration) && videoDuration > 0 ? videoDuration : null;
-            // Musik-Schnitt: Segmentlänge auf ganze Beats runden (min. 2 Beats)
-            const snap = (beatSec && beatSec > 0.05) ? beatSec : 0;
+            targetSec = Math.min(Math.max(targetSec || 60, 5), 300);
+            const MINLEN = 1.5; // Mindestlänge pro Clip (keine Zuckungen)
+            const snap = (beatSec && beatSec > 0.05) ? beatSec : 0; // Takt-Schnitt
 
-            let segs = scenes.map(s => {
-                let a = Number(s.startTime ?? s.start ?? 0);
+            const durOf = (vi) => {
+                if (Array.isArray(videoDurations)) return videoDurations[vi] > 0 ? videoDurations[vi] : null;
+                return (isFinite(videoDurations) && videoDurations > 0) ? videoDurations : null;
+            };
+
+            // Pro-Clip-Maximum: adaptiv, damit möglichst VIELE gute Szenen reinpassen.
+            // Kürzere Reels → kürzere Clips; ~12 Highlights als Richtwert.
+            let perClipMax = Math.min(5, Math.max(MINLEN, targetSec / 12));
+            if (snap) perClipMax = Math.max(snap * 2, Math.round(perClipMax / snap) * snap);
+
+            // Jede Szene auf einen knackigen (mittigen) Ausschnitt kürzen.
+            let cands = scenes.map(s => {
+                const vi = Number(s.videoIndex || 0);
+                let a = Math.max(0, Number(s.startTime ?? s.start ?? 0));
                 let b = Number(s.endTime ?? s.end ?? a);
-                if (b - a < MINLEN) { const mid = (a + b) / 2; a = mid - MINLEN / 2; b = mid + MINLEN / 2; }
-                a = Math.max(0, a);
-                if (dur) b = Math.min(dur, b);
-                if (snap) {
-                    const beats = Math.max(2, Math.round((b - a) / snap));
-                    b = a + beats * snap;
-                    if (dur) b = Math.min(dur, b);
-                }
-                return { start: a, end: b, quality: Number(s.quality ?? 0) };
-            }).filter(s => s.end > s.start);
+                const d = durOf(vi);
+                if (d) b = Math.min(d, b);
+                const len = b - a;
+                if (len < MINLEN) return null; // zu kurz zum Zeigen
+                let clip = Math.min(len, perClipMax);
+                if (snap) clip = Math.min(len, Math.max(snap * 2, Math.round(clip / snap) * snap));
+                const mid = (a + b) / 2;
+                let ca = Math.max(a, mid - clip / 2);
+                let cb = Math.min(b, ca + clip);
+                ca = Math.max(a, cb - clip);
+                return { start: ca, end: cb, videoIndex: vi, quality: Number(s.quality ?? 0) };
+            }).filter(s => s && s.end - s.start >= MINLEN * 0.9);
 
-            // Nach Qualität wählen bis Ziel-Länge
-            segs.sort((a, b) => b.quality - a.quality);
+            // Beste zuerst wählen, bis Ziel-Länge erreicht
+            cands.sort((a, b) => b.quality - a.quality);
             const chosen = [];
             let total = 0;
-            for (const s of segs) {
-                const d = s.end - s.start;
+            for (const c of cands) {
+                const d = c.end - c.start;
                 if (total + d > targetSec && chosen.length) continue;
-                chosen.push(s);
+                chosen.push(c);
                 total += d;
                 if (total >= targetSec) break;
             }
 
-            // Chronologisch + überlappende/angrenzende zusammenführen
-            chosen.sort((a, b) => a.start - b.start);
+            // Nach Video gruppieren, darin chronologisch; angrenzende gleicher Quelle mergen
+            chosen.sort((a, b) => (a.videoIndex - b.videoIndex) || (a.start - b.start));
             const merged = [];
-            for (const s of chosen) {
+            for (const c of chosen) {
                 const last = merged[merged.length - 1];
-                if (last && s.start <= last.end + 0.1) last.end = Math.max(last.end, s.end);
-                else merged.push({ start: s.start, end: s.end });
+                if (last && last.videoIndex === c.videoIndex && c.start <= last.end + 0.1)
+                    last.end = Math.max(last.end, c.end);
+                else merged.push({ start: c.start, end: c.end, videoIndex: c.videoIndex });
             }
             return merged;
         }
@@ -1731,11 +1795,10 @@
                 const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
                 let result;
                 if (useReel) {
-                    const targetSec = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
-                    const vidDur = (PV.video && isFinite(PV.video.duration) && PV.video.duration) ||
-                                   Math.max(...RG.cache.scenes.map(s => Number(s.endTime ?? s.end ?? 0)), targetSec);
+                    const targetSec = getReelLength();
+                    const vidDurs = RG.cache.videoDurations || null;
                     const beatSec = (RG.currentProject.music && RG.cache.bpm && (RG.currentProject.audio || {}).beatSync !== false) ? 60 / RG.cache.bpm : null;
-                    const segments = buildReelSegments(RG.cache.scenes, vidDur, targetSec, beatSec);
+                    const segments = buildReelSegments(RG.cache.scenes, vidDurs, targetSec, beatSec);
                     if (!segments.length) {
                         showAlert('Keine geeigneten Szenen – exportiere ganzes Video.', 'info');
                         result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
@@ -1923,7 +1986,46 @@
             return `${m}:${String(s).padStart(2, '0')}`;
         }
 
-        const PV = { video: null, canvas: null, ctx: null, music: null, segs: [], idx: 0, playing: false, raf: 0, elapsed: 0, total: 0, last: 0, seeking: false };
+        const PV = { video: null, canvas: null, ctx: null, music: null, segs: [], idx: 0, playing: false, raf: 0, elapsed: 0, total: 0, last: 0, seeking: false, vidUrls: [], curVid: -1 };
+
+        // Blob-URL für ein bestimmtes Quell-Video (mehrere Clips möglich)
+        function pvVideoUrl(vi) {
+            const vids = RG.currentProject.videos || [];
+            const v = vids[vi] || vids[0];
+            if (!v) return null;
+            if (!PV.vidUrls[vi]) {
+                const blob = v.data instanceof Blob ? v.data : new Blob([v.data], { type: v.type || 'video/mp4' });
+                PV.vidUrls[vi] = URL.createObjectURL(blob);
+            }
+            return PV.vidUrls[vi];
+        }
+        // Wechselt die Vorschau-Quelle, wenn ein Segment aus einem anderen Video kommt
+        function pvEnsureVideo(vi) {
+            vi = vi || 0;
+            return new Promise(res => {
+                if (PV.curVid === vi && PV.video.src) return res();
+                const url = pvVideoUrl(vi);
+                if (!url) return res();
+                const on = () => { PV.video.removeEventListener('loadedmetadata', on); PV.curVid = vi; res(); };
+                PV.video.addEventListener('loadedmetadata', on);
+                PV.video.src = url;
+                try { PV.video.load(); } catch (e) {}
+            });
+        }
+        // Springt zu Segment idx (inkl. Quell-Wechsel) und spielt ggf. weiter
+        async function pvGoto(idx) {
+            if (!PV.segs.length) return;
+            PV.seeking = true; PV.idx = idx;
+            const seg = PV.segs[idx];
+            await pvEnsureVideo(seg.videoIndex || 0);
+            await pvSeek(seg.start);
+            if (PV.playing) {
+                const a = RG.currentProject.audio || {};
+                PV.video.muted = (a.keepVideoAudio === false);
+                try { await PV.video.play(); } catch (e) {}
+            }
+            PV.seeking = false; PV.last = performance.now();
+        }
 
         function pvAspect() {
             const s = String((DOM.platformSelect && DOM.platformSelect.value) || 'tiktok').toLowerCase();
@@ -1936,10 +2038,11 @@
         function pvBuildSegs() {
             const dur = (PV.video && isFinite(PV.video.duration) && PV.video.duration) || 60;
             const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
-            const target = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
+            const target = getReelLength();
+            const vidDurs = RG.cache.videoDurations || null;
             const beatSec = (RG.currentProject.music && RG.cache.bpm && (RG.currentProject.audio || {}).beatSync !== false) ? 60 / RG.cache.bpm : null;
-            let segs = useReel ? buildReelSegments(RG.cache.scenes, dur, target, beatSec) : [{ start: 0, end: Math.min(dur, 60) }];
-            if (!segs.length) segs = [{ start: 0, end: Math.min(dur, 60) }];
+            let segs = useReel ? buildReelSegments(RG.cache.scenes, vidDurs, target, beatSec) : [{ start: 0, end: Math.min(dur, 60), videoIndex: 0 }];
+            if (!segs.length) segs = [{ start: 0, end: Math.min(dur, 60), videoIndex: 0 }];
             return segs;
         }
 
@@ -1999,9 +2102,9 @@
                     const now = performance.now(); PV.elapsed = Math.min(PV.total, PV.elapsed + (now - PV.last) / 1000); PV.last = now;
                     const seg = PV.segs[PV.idx];
                     if (seg && (PV.video.currentTime >= seg.end - 0.03 || PV.video.ended)) {
-                        PV.idx++;
-                        if (PV.idx >= PV.segs.length) { PV.idx = 0; PV.elapsed = 0; PV.seeking = true; pvSeek(PV.segs[0].start).then(() => { PV.seeking = false; PV.last = performance.now(); }); }
-                        else { PV.seeking = true; pvSeek(PV.segs[PV.idx].start).then(() => { PV.seeking = false; PV.last = performance.now(); }); }
+                        const next = PV.idx + 1;
+                        if (next >= PV.segs.length) { PV.elapsed = 0; pvGoto(0); }
+                        else pvGoto(next);
                     }
                 }
                 pvDraw();
@@ -2029,11 +2132,13 @@
                 DOM.previewCanvas.appendChild(PV.canvas);
                 PV.ctx = PV.canvas.getContext('2d');
                 pvSetCanvasSize();
-                PV.video.addEventListener('loadedmetadata', () => { refreshPreview(); });
                 if (!PV.raf) PV.raf = requestAnimationFrame(pvLoop);
             }
-            const blob = video.data instanceof Blob ? video.data : new Blob([video.data], { type: video.type || 'video/mp4' });
-            PV.video.src = URL.createObjectURL(blob);
+            // Quell-URLs neu aufbauen (Videos können sich geändert haben)
+            PV.vidUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+            PV.vidUrls = []; PV.curVid = -1;
+            // Erstes Video laden, dann Vorschau bauen
+            pvEnsureVideo(0).then(() => refreshPreview());
 
             // Musik für die Vorschau (hörbar mit eingestellter Lautstärke)
             if (RG.currentProject.music) {
@@ -2050,8 +2155,9 @@
             PV.segs = pvBuildSegs();
             PV.total = PV.segs.reduce((s, x) => s + (x.end - x.start), 0);
             PV.idx = 0; PV.elapsed = 0;
+            updateReelEstimate();
             if (DOM.reelInfo) DOM.reelInfo.textContent = `Vorschau: ${PV.segs.length} Szene(n) · ~${PV.total.toFixed(0)}s · ${pvAspect().join(':')}`;
-            PV.seeking = true; await pvSeek(PV.segs[0].start); PV.seeking = false; PV.last = performance.now();
+            PV.seeking = true; await pvEnsureVideo(PV.segs[0].videoIndex || 0); await pvSeek(PV.segs[0].start); PV.seeking = false; PV.last = performance.now();
             pvDraw();
         }
 
@@ -2092,7 +2198,7 @@
                 if (PV.elapsed <= acc + d || i === PV.segs.length - 1) { idx = i; tIn = PV.elapsed - acc; break; }
                 acc += d;
             }
-            PV.idx = idx; PV.seeking = true; await pvSeek(PV.segs[idx].start + Math.max(0, tIn)); PV.seeking = false; pvDraw();
+            PV.idx = idx; PV.seeking = true; await pvEnsureVideo(PV.segs[idx].videoIndex || 0); await pvSeek(PV.segs[idx].start + Math.max(0, tIn)); PV.seeking = false; pvDraw();
         });
 
         // ===== EFFEKTE =====
@@ -2135,7 +2241,16 @@
 
         // Format / Reel-Länge / Auto-Reel ändern -> Vorschau neu aufbauen
         if (DOM.platformSelect) DOM.platformSelect.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
-        if (DOM.reelLength) DOM.reelLength.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
+        // Reel-Länge: Editor- und Export-Feld synchron halten
+        function applyReelLength(val, from) {
+            let v = Math.min(300, Math.max(5, parseInt(val) || 60));
+            RG.currentProject.reelLength = v;
+            if (DOM.reelLength && from !== 'export') DOM.reelLength.value = v;
+            if (DOM.reelLengthEditor && from !== 'editor') DOM.reelLengthEditor.value = v;
+            if (typeof refreshPreview === 'function') refreshPreview();
+        }
+        if (DOM.reelLength) DOM.reelLength.addEventListener('change', (e) => applyReelLength(e.target.value, 'export'));
+        if (DOM.reelLengthEditor) DOM.reelLengthEditor.addEventListener('change', (e) => applyReelLength(e.target.value, 'editor'));
         if (DOM.reelMode) DOM.reelMode.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
 
         // Hook-Dauer
