@@ -734,10 +734,13 @@
                         <div class="form-group">
                             <label class="form-label">Plattform</label>
                             <select class="form-select" id="platformSelect">
-                                <option value="tiktok">TikTok (9:16)</option>
+                                <option value="tiktok">TikTok (9:16 Hochformat)</option>
                                 <option value="instagram">Instagram Reel (9:16)</option>
                                 <option value="youtube">YouTube Short (9:16)</option>
-                                <option value="twitter">Twitter/X (16:9)</option>
+                                <option value="youtube-landscape">YouTube / Querformat (16:9)</option>
+                                <option value="twitter">Twitter/X (16:9 Querformat)</option>
+                                <option value="square">Quadrat (1:1)</option>
+                                <option value="instagram-feed">Instagram Feed (4:5)</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -838,8 +841,10 @@
                         </label>
                         <textarea id="subsText" placeholder="Eine Zeile pro Untertitel…&#10;Wird gleichmäßig über das Reel verteilt."
                             style="width:100%; min-height:70px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px; font-size:11px; resize:vertical;"></textarea>
+                        <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:6px;" id="btnAutoSubs">🎙️ Auto-Untertitel (Sprache)</button>
                         <div style="font-size:10px; color:var(--muted); margin-top:4px;">
-                            Tipp: kurze Zeilen. Werden unten ins Video eingebrannt.
+                            Kurze Zeilen, werden unten eingebrannt. Auto: OpenAI-Whisper (Schlüssel in
+                            Einstellungen) transkribiert das Video – sonst Diktat per Browser-Spracherkennung.
                         </div>
                     </div>
                 </div>
@@ -950,7 +955,17 @@
                             Jeder Aufruf verbraucht Guthaben deines Kontos. Schlüssel:
                             <span id="aiKeyStatus">nicht gesetzt</span>.
                         </div>
-                        <button class="btn btn-ghost btn-sm" id="btnSaveKey">Schlüssel speichern</button>
+                        <button class="btn btn-ghost btn-sm" id="btnSaveKey">Claude-Schlüssel speichern</button>
+
+                        <div class="form-group" style="margin-top:14px;">
+                            <label class="form-label">OpenAI API-Schlüssel (für Auto-Untertitel / Whisper)</label>
+                            <input type="password" class="form-input" id="openaiKey" placeholder="sk-…" autocomplete="off">
+                        </div>
+                        <div style="font-size: 10px; color: var(--muted); margin: -6px 0 10px;">
+                            Optional – transkribiert das Video automatisch. Status:
+                            <span id="subKeyStatus">nicht gesetzt</span>.
+                        </div>
+                        <button class="btn btn-ghost btn-sm" id="btnSaveOpenaiKey">OpenAI-Schlüssel speichern</button>
                     </div>
 
                     <!-- UPLOAD SETTINGS -->
@@ -1108,6 +1123,7 @@
     <script src="api/filmora-api.js"></script>
     <script src="api/filmora-export-api.js"></script>
     <script src="api/ai-enhance.js"></script>
+    <script src="api/subtitle-ai.js"></script>
 
     <!-- MAIN SCRIPT -->
     <script>
@@ -1194,6 +1210,10 @@
             anthropicKey: document.getElementById('anthropicKey'),
             btnSaveKey: document.getElementById('btnSaveKey'),
             aiKeyStatus: document.getElementById('aiKeyStatus'),
+            openaiKey: document.getElementById('openaiKey'),
+            btnSaveOpenaiKey: document.getElementById('btnSaveOpenaiKey'),
+            subKeyStatus: document.getElementById('subKeyStatus'),
+            btnAutoSubs: document.getElementById('btnAutoSubs'),
             btnPreviewReel: document.getElementById('btnPreviewReel'),
             reelInfo: document.getElementById('reelInfo'),
             btnMusicSync: document.getElementById('btnMusicSync'),
@@ -1981,6 +2001,72 @@
             }
         }
         if (DOM.btnAiEnhance) DOM.btnAiEnhance.addEventListener('click', aiEnhance);
+
+        // ===== AUTO-UNTERTITEL (Sprache) =====
+        function refreshSubKeyStatus() {
+            if (!DOM.subKeyStatus) return;
+            DOM.subKeyStatus.textContent = (typeof SubtitleAI !== 'undefined' && SubtitleAI.hasKey()) ? 'gesetzt ✓' : 'nicht gesetzt';
+        }
+        if (DOM.btnSaveOpenaiKey) DOM.btnSaveOpenaiKey.addEventListener('click', () => {
+            if (typeof SubtitleAI === 'undefined') return;
+            SubtitleAI.setKey((DOM.openaiKey.value || '').trim());
+            DOM.openaiKey.value = '';
+            refreshSubKeyStatus();
+            showAlert('🔑 OpenAI-Schlüssel lokal gespeichert.', 'success');
+        });
+        refreshSubKeyStatus();
+
+        let dictation = null;
+        function fillSubs(lines) {
+            if (!lines || !lines.length) { showAlert('Keine Sprache erkannt.', 'info'); return; }
+            const existing = (DOM.subsText.value || '').trim();
+            DOM.subsText.value = (existing ? existing + '\n' : '') + lines.join('\n');
+            if (DOM.enableSubs) DOM.enableSubs.checked = true;
+            syncSubs();
+        }
+        async function autoSubtitles() {
+            if (typeof SubtitleAI === 'undefined') { showAlert('Untertitel-Modul nicht geladen.', 'danger'); return; }
+
+            // Läuft ein Diktat? -> stoppen.
+            if (dictation) { try { dictation.stop(); } catch (e) {} dictation = null; DOM.btnAutoSubs.textContent = '🎙️ Auto-Untertitel (Sprache)'; return; }
+
+            // 1) Whisper, wenn OpenAI-Schlüssel hinterlegt
+            if (SubtitleAI.hasKey()) {
+                const video = RG.currentProject.videos[0];
+                if (!video) { showAlert('Bitte zuerst ein Video laden.', 'danger'); return; }
+                const btn = DOM.btnAutoSubs, label = btn.textContent;
+                btn.disabled = true; btn.textContent = '🎙️ Transkribiere…';
+                try {
+                    const blob = video.data instanceof Blob ? video.data : new Blob([video.data], { type: video.type || 'video/mp4' });
+                    const lines = await SubtitleAI.transcribeWhisper(blob, { language: 'de' });
+                    fillSubs(lines);
+                    showAlert(`✅ ${lines.length} Untertitel-Zeilen erkannt.`, 'success');
+                } catch (err) {
+                    console.error('Whisper failed:', err);
+                    showAlert('Transkription fehlgeschlagen: ' + err.message, 'danger');
+                } finally { btn.disabled = false; btn.textContent = label; }
+                return;
+            }
+
+            // 2) Browser-Spracherkennung (Diktat), kein Schlüssel nötig
+            if (SubtitleAI.hasWebSpeech()) {
+                try {
+                    showAlert('🎤 Sprich jetzt – nochmal klicken zum Stoppen.', 'info');
+                    DOM.btnAutoSubs.textContent = '⏹ Diktat stoppen';
+                    dictation = SubtitleAI.dictate(
+                        (line) => fillSubs([line]),
+                        (err) => { dictation = null; DOM.btnAutoSubs.textContent = '🎙️ Auto-Untertitel (Sprache)'; if (err) showAlert('Spracherkennung: ' + err, 'danger'); }
+                    );
+                } catch (err) {
+                    showAlert(err.message, 'danger');
+                    DOM.btnAutoSubs.textContent = '🎙️ Auto-Untertitel (Sprache)';
+                }
+                return;
+            }
+
+            showAlert('Für Auto-Untertitel: OpenAI-Schlüssel in Einstellungen setzen, oder einen Browser mit Spracherkennung nutzen.', 'danger');
+        }
+        if (DOM.btnAutoSubs) DOM.btnAutoSubs.addEventListener('click', autoSubtitles);
 
         // ===== REEL-VORSCHAU (ohne Export) =====
         let reelPreviewRAF = null, reelPreviewSegs = null, reelPreviewIdx = 0, reelPreviewStart = 0;

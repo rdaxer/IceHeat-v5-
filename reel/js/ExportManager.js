@@ -21,9 +21,10 @@ const ExportManager = (() => {
 
     function aspectFor(platform) {
         const p = String(platform || '').toLowerCase();
-        if (p.includes('4:5')) return [4, 5];
-        if (p.includes('16:9') || (p.includes('youtube') && !p.includes('short'))) return [16, 9];
-        return [9, 16]; // TikTok / Reels / Shorts – Standard
+        if (p.includes('1:1') || p.includes('square') || p.includes('quadrat')) return [1, 1];
+        if (p.includes('4:5') || p.includes('feed')) return [4, 5];
+        if (p.includes('16:9') || p.includes('landscape') || p.includes('quer') || p === 'twitter') return [16, 9];
+        return [9, 16]; // TikTok / Reels / Shorts – Standard (Hochformat)
     }
 
     function blobFromMedia(m) {
