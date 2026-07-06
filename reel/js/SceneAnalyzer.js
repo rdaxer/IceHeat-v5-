@@ -10,7 +10,8 @@ const SceneAnalyzer = (() => {
     // Extrahiere Frames aus Video
     async function extractFrames(videoFile, maxFrames = 100) {
         return new Promise((resolve, reject) => {
-            const blob = new Blob([videoFile.data || videoFile]);
+            const raw = videoFile.data || videoFile;
+            const blob = raw instanceof Blob ? raw : new Blob([raw], { type: (videoFile && videoFile.type) || 'video/mp4' });
             const url = URL.createObjectURL(blob);
             const video = document.createElement('video');
             const frames = [];

@@ -1427,13 +1427,17 @@
         }
 
         function renderSceneList() {
-            DOM.sceneList.innerHTML = RG.cache.scenes.map((scene, idx) => `
+            DOM.sceneList.innerHTML = RG.cache.scenes.map((scene, idx) => {
+                const start = Number(scene.startTime ?? scene.start ?? 0);
+                const end = Number(scene.endTime ?? scene.end ?? 0);
+                const quality = Number(scene.quality ?? 0);
+                return `
                 <div style="background: var(--surface2); padding: 6px; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); font-size: 10px;">
                     <div style="font-weight: 700; color: var(--ice);">Szene ${idx + 1}</div>
-                    <div style="color: var(--muted);">${scene.start.toFixed(1)}s - ${scene.end.toFixed(1)}s</div>
-                    <div style="color: var(--success); font-weight: 600;">${(scene.quality * 100).toFixed(0)}% Qualität</div>
-                </div>
-            `).join('');
+                    <div style="color: var(--muted);">${start.toFixed(1)}s - ${end.toFixed(1)}s</div>
+                    <div style="color: var(--success); font-weight: 600;">${(quality * 100).toFixed(0)}% Qualität</div>
+                </div>`;
+            }).join('');
         }
 
         async function generateHook() {
