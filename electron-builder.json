@@ -1,46 +1,32 @@
 {
-  "appId": "com.iceheat.desktop",
-  "productName": "IceHeat Desktop",
+  "appId": "com.videoreel.pro",
+  "productName": "VideoReel Pro",
   "directories": {
-    "buildResources": "build",
     "output": "dist"
   },
   "files": [
-    "src/",
-    "reel/",
-    "index.html",
-    "manifest.json",
-    "service-worker.js",
+    "src/**/*",
+    "reel/**/*",
     "icon-192.png",
     "icon-512.png",
-    "assets/",
-    "node_modules/"
+    "package.json"
   ],
   "win": {
     "target": [
-      {
-        "target": "nsis",
-        "arch": ["x64"]
-      },
-      {
-        "target": "portable",
-        "arch": ["x64"]
-      }
-    ],
-    "certificateFile": null,
-    "signingHashAlgorithms": ["sha256"],
-    "sign": null
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "portable", "arch": ["x64"] }
+    ]
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "IceHeat Desktop",
+    "shortcutName": "VideoReel Pro",
     "deleteAppDataOnUninstall": false,
-    "artifactName": "${productName}-${version}-Installer.${ext}"
+    "artifactName": "VideoReel-Pro-${version}-Installer.${ext}"
   },
   "portable": {
-    "artifactName": "${productName}-${version}-Portable.${ext}"
+    "artifactName": "VideoReel-Pro-${version}-Portable.${ext}"
   }
 }

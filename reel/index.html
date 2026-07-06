@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reel Generator — Video für Social Media</title>
+    <title>VideoReel Pro — Video für Social Media</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0ea5e9">
     <meta name="mobile-web-app-capable" content="true">
@@ -12,12 +12,10 @@
     <link rel="apple-touch-icon" href="../icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 
-    <!-- Video & Audio Processing Libraries -->
-    <script async src="https://docs.opencv.org/4.10.0/opencv.js" onerror="console.warn('OpenCV nicht geladen')"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <script src="https://wavesurfer-js.org/dist/wavesurfer.min.js"></script>
-    <script src="https://ffmpeg.wasm.io/ffmpeg-core.min.js"></script>
+    <!-- Optionale Zusatz-Bibliotheken (verbessern Analyse, sind aber nicht Pflicht) -->
+    <script async src="https://docs.opencv.org/4.10.0/opencv.js" onerror="console.warn('OpenCV nicht geladen – Analyse nutzt internen Fallback')"></script>
+    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" onerror="console.warn('Tesseract nicht geladen')"></script>
+    <script async src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js" onerror="console.warn('Tone.js nicht geladen')"></script>
 
     <style>
         :root {
@@ -668,7 +666,7 @@
 <body>
     <!-- NAVBAR -->
     <nav class="navbar">
-        <div class="logo">🎬 Reel</div>
+        <div class="logo">🎬 VideoReel <span style="color:var(--accent)">Pro</span></div>
         <div class="nav-tabs">
             <div class="nav-tab active" data-tab="upload">Upload</div>
             <div class="nav-tab" data-tab="editor">Editor</div>
@@ -1599,7 +1597,13 @@
         renderMediaList('music');
         renderMediaList('image');
 
-        showAlert('🎬 Willkommen zum Reel Generator!', 'info');
+        showAlert('🎬 Willkommen bei VideoReel Pro!', 'info');
+
+        // Menü-Ereignisse aus dem Electron-Hauptprozess
+        if (window.electron) {
+            window.electron.onMenuNewProject?.(() => document.getElementById('btnReset')?.click());
+            window.electron.onMenuSaveProject?.(() => document.getElementById('btnSave')?.click());
+        }
     </script>
 </body>
 </html>
