@@ -53,6 +53,30 @@ const ExportManager = (() => {
         vintage: 'sepia(0.5) contrast(0.9) brightness(1.05)'
     };
 
+    // Audio-Graph: Video-Ton (Gain) + optionale Musik (Gain, mit Fade)
+    function buildAudioGraph(audioCtx, vEl, musicEl, audio) {
+        const dest = audioCtx.createMediaStreamDestination();
+        const videoGain = audioCtx.createGain();
+        const musicGain = audioCtx.createGain();
+        videoGain.connect(dest); musicGain.connect(dest);
+        videoGain.gain.value = (audio.keepVideoAudio === false) ? 0 : 1;
+        musicGain.gain.value = musicEl ? (audio.musicVolume != null ? audio.musicVolume : 0.8) : 0;
+        try { audioCtx.createMediaElementSource(vEl).connect(videoGain); } catch (e) {}
+        if (musicEl) { try { audioCtx.createMediaElementSource(musicEl).connect(musicGain); } catch (e) {} }
+        return { dest, videoGain, musicGain };
+    }
+    function tickAudioGains(elapsed, total, audio, gains, videoFadeOut) {
+        if (!gains) return;
+        const vol = audio.musicVolume != null ? audio.musicVolume : 0.8;
+        let mf = 1;
+        if (audio.musicFadeIn && elapsed < 0.8) mf = elapsed / 0.8;
+        else if (audio.musicFadeOut && elapsed > total - 0.8) mf = (total - elapsed) / 0.8;
+        gains.musicGain.gain.value = vol * Math.max(0, Math.min(1, mf));
+        let vf = (audio.keepVideoAudio === false) ? 0 : 1;
+        if (videoFadeOut && elapsed > total - 1) vf *= Math.max(0, total - elapsed);
+        gains.videoGain.gain.value = vf;
+    }
+
     // Aktive Untertitel-Zeile für den aktuellen Zeitpunkt (gleichmäßig verteilt)
     function activeSubtitle(project, elapsed, total) {
         if (!project || !project.subsEnabled) return '';
@@ -99,32 +123,24 @@ const ExportManager = (() => {
         };
         const filterCss = FILTER_CSS[fx.filter] || 'none';
         const overlayText = fx.textOverlay || '';
+        const audio = project.audio || {};
+        const hookDur = (project.timeline && project.timeline.hookDuration) || 3;
 
-        // Audio: Video-Ton + optionale Musik über eine Master-Gain (für Ton-Ausblendung)
-        let audioDest = null, audioCtx = null, musicEl = null, masterGain = null;
+        // Audio: Video-Ton + optionale Musik mit getrennten Gains (Lautstärke/Fade)
+        let audioCtx = null, gains = null, musicEl = null;
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            audioDest = audioCtx.createMediaStreamDestination();
-            masterGain = audioCtx.createGain();
-            masterGain.connect(audioDest);
-            try {
-                const vNode = audioCtx.createMediaElementSource(vEl);
-                vNode.connect(masterGain);
-            } catch (e) { /* Video evtl. ohne Tonspur */ }
             if (project.music) {
                 musicEl = document.createElement('audio');
                 musicEl.src = URL.createObjectURL(blobFromMedia(project.music));
                 musicEl.loop = true;
-                try {
-                    const mNode = audioCtx.createMediaElementSource(musicEl);
-                    mNode.connect(masterGain);
-                } catch (e) { /* ignore */ }
             }
-        } catch (e) { audioDest = null; }
+            gains = buildAudioGraph(audioCtx, vEl, musicEl, audio);
+        } catch (e) { gains = null; }
 
         const canvasStream = canvas.captureStream(fps);
         const tracks = canvasStream.getVideoTracks();
-        const allTracks = audioDest ? tracks.concat(audioDest.stream.getAudioTracks()) : tracks;
+        const allTracks = gains ? tracks.concat(gains.dest.stream.getAudioTracks()) : tracks;
         const stream = new MediaStream(allTracks);
 
         const preferMp4 = String(options.format || 'mp4').toLowerCase().includes('mp4');
@@ -165,7 +181,7 @@ const ExportManager = (() => {
             ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
             ctx.filter = 'none';
 
-            if (hookText && vEl.currentTime < 3) drawText(hookText, outH * 0.25, 0.075);
+            if (hookText && vEl.currentTime < hookDur) drawText(hookText, outH * 0.25, 0.075);
             if (overlayText) drawText(overlayText, outH * 0.86, 0.055);
             const sub = activeSubtitle(project, vEl.currentTime, maxDur);
             if (sub) drawText(sub, outH * 0.90, 0.045);
@@ -179,11 +195,8 @@ const ExportManager = (() => {
                 if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a)})`; ctx.fillRect(0, 0, outW, outH); }
             }
 
-            // Ton ausblenden am Ende
-            if (fx.audioFade && masterGain) {
-                const rem = maxDur - vEl.currentTime;
-                masterGain.gain.value = rem < 1 ? Math.max(0, rem) : 1;
-            }
+            // Lautstärke/Fade für Musik & Video-Ton
+            tickAudioGains(vEl.currentTime, maxDur, audio, gains, fx.audioFade);
         }
 
         await new Promise(async (resolve, reject) => {
@@ -253,24 +266,23 @@ const ExportManager = (() => {
         const overlayText = fx.textOverlay || '';
         const hookText = (project.timeline && (project.timeline.hook ||
             (project.timeline.hookConfig && project.timeline.hookConfig.text))) || '';
+        const audio = project.audio || {};
+        const hookDur = (project.timeline && project.timeline.hookDuration) || 3;
 
-        // Audio: bevorzugt Musik-Bett (nahtlos über Schnitte), sonst Video-Ton
-        let audioDest = null, audioCtx = null, musicEl = null;
+        // Audio: Video-Ton + optionale Musik mit getrennten Gains (Lautstärke/Fade)
+        let audioCtx = null, gains = null, musicEl = null;
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            audioDest = audioCtx.createMediaStreamDestination();
             if (project.music) {
                 musicEl = document.createElement('audio');
                 musicEl.src = URL.createObjectURL(blobFromMedia(project.music));
                 musicEl.loop = true;
-                try { audioCtx.createMediaElementSource(musicEl).connect(audioDest); } catch (e) {}
-            } else {
-                try { audioCtx.createMediaElementSource(vEl).connect(audioDest); } catch (e) {}
             }
-        } catch (e) { audioDest = null; }
+            gains = buildAudioGraph(audioCtx, vEl, musicEl, audio);
+        } catch (e) { gains = null; }
 
         const cStream = canvas.captureStream(fps);
-        const tracks = cStream.getVideoTracks().concat(audioDest ? audioDest.stream.getAudioTracks() : []);
+        const tracks = cStream.getVideoTracks().concat(gains ? gains.dest.stream.getAudioTracks() : []);
         const stream = new MediaStream(tracks);
         const mime = pickMime(String(options.format || 'mp4').toLowerCase().includes('mp4'));
         const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: (parseInt(options.bitrate) || 6000) * 1000 } : undefined);
@@ -310,7 +322,7 @@ const ExportManager = (() => {
                 ctx.filter = filterCss;
                 ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
                 ctx.filter = 'none';
-                if (hookText && outElapsed < 3) drawText(hookText, outH * 0.25, 0.075);
+                if (hookText && outElapsed < hookDur) drawText(hookText, outH * 0.25, 0.075);
                 if (overlayText) drawText(overlayText, outH * 0.86, 0.055);
                 const sub = activeSubtitle(project, outElapsed, totalOut);
                 if (sub) drawText(sub, outH * 0.90, 0.045);
@@ -320,6 +332,7 @@ const ExportManager = (() => {
                     else if (outElapsed > totalOut - 0.5) a = (outElapsed - (totalOut - 0.5)) / 0.5;
                     if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, a)})`; ctx.fillRect(0, 0, outW, outH); }
                 }
+                tickAudioGains(outElapsed, totalOut, audio, gains, fx.audioFade);
             }
 
             let last = performance.now();

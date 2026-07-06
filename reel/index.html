@@ -809,19 +809,42 @@
                         <input type="text" class="form-input" id="hookInput" placeholder="Hook-Text (editierbar)…"
                             style="width:100%; margin-top:6px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px; font-size:12px;">
                         <button class="btn btn-primary" style="width:100%; margin-top:6px; background:#7c3aed;" id="btnAiEnhance">✨ Mit KI verbessern (Claude)</button>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11px; color:var(--muted);">
+                            <span>Hook-Dauer:</span>
+                            <select class="form-select" id="hookDuration" style="flex:1;">
+                                <option value="2">2 Sek.</option>
+                                <option value="3" selected>3 Sek.</option>
+                                <option value="4">4 Sek.</option>
+                                <option value="5">5 Sek.</option>
+                            </select>
+                        </div>
                         <div style="font-size: 10px; color: var(--muted); margin-top:4px;" id="hookPreview">
                             Tipp: Vorschlagen klicken oder eigenen Text tippen.
                         </div>
                     </div>
 
                     <div class="sidebar-section">
-                        <div class="sidebar-title">🎵 Musik-Sync</div>
-                        <button class="btn btn-ghost" style="width: 100%;" id="btnMusicSync">
-                            BPM erkennen
+                        <div class="sidebar-title">🎵 Musik</div>
+                        <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnMusicSync">
+                            🥁 BPM erkennen
                         </button>
-                        <div style="font-size: 10px; color: var(--muted); margin-top: 4px;" id="bpmInfo">
+                        <div style="font-size: 10px; color: var(--muted); margin: 4px 0 8px;" id="bpmInfo">
                             Musik: nicht geladen
                         </div>
+                        <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:2px;">Musik-Lautstärke: <span id="musicVolLabel">80%</span></label>
+                        <input type="range" id="musicVolume" min="0" max="100" value="80" style="width:100%;">
+                        <label style="display:block; font-size:11px; color:var(--text); margin-top:8px;">
+                            <input type="checkbox" id="musicOnly" style="margin-right:6px;">
+                            Nur Musik (Video-Ton aus / komplett drüberlegen)
+                        </label>
+                        <label style="display:block; font-size:11px; color:var(--text); margin-top:4px;">
+                            <input type="checkbox" id="musicFade" checked style="margin-right:6px;">
+                            Musik ein-/ausblenden
+                        </label>
+                        <label style="display:block; font-size:11px; color:var(--text); margin-top:4px;">
+                            <input type="checkbox" id="beatSync" checked style="margin-right:6px;">
+                            🎵 Schnitte am Takt (BPM)
+                        </label>
                     </div>
 
                     <div class="sidebar-section">
@@ -1078,15 +1101,19 @@
 
                 <!-- SHARING -->
                 <div class="upload-card">
-                    <h3>📱 Teilen</h3>
+                    <h3>📤 Hochladen</h3>
                     <p style="font-size: 11px; color: var(--muted); margin-bottom: 12px;">
-                        Nach erfolgreichem Export kannst du dein Reel direkt mit deinen Followern teilen.
+                        Öffnet die Upload-Seite der Plattform (und lädt dein Video herunter, falls noch nicht geschehen). Dort das Video auswählen.
                     </p>
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <button class="btn btn-ghost btn-sm" id="btnShareTiktok">TikTok</button>
                         <button class="btn btn-ghost btn-sm" id="btnShareInstagram">Instagram</button>
                         <button class="btn btn-ghost btn-sm" id="btnShareYoutube">YouTube</button>
                         <button class="btn btn-ghost btn-sm" id="btnShareTwitter">Twitter/X</button>
+                    </div>
+                    <p style="font-size: 11px; color: var(--muted); margin: 14px 0 8px;">Weiter bearbeiten:</p>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button class="btn btn-ghost btn-sm" id="btnOpenCanva">🎨 In Canva optimieren</button>
                     </div>
                 </div>
 
@@ -1145,13 +1172,22 @@
                 music: null,
                 timeline: {
                     clips: [],
-                    duration: 0
+                    duration: 0,
+                    hook: '',
+                    hookDuration: 3
                 },
                 effects: {
                     filter: 'none',
                     fade: false,
                     textOverlay: '',
                     audioFade: false
+                },
+                audio: {
+                    musicVolume: 0.8,
+                    keepVideoAudio: true,
+                    musicFadeIn: true,
+                    musicFadeOut: true,
+                    beatSync: true
                 },
                 subsEnabled: false,
                 subtitles: []
@@ -1214,6 +1250,12 @@
             hookPreview: document.getElementById('hookPreview'),
             btnGenerateHook: document.getElementById('btnGenerateHook'),
             hookInput: document.getElementById('hookInput'),
+            hookDuration: document.getElementById('hookDuration'),
+            musicVolume: document.getElementById('musicVolume'),
+            musicVolLabel: document.getElementById('musicVolLabel'),
+            musicOnly: document.getElementById('musicOnly'),
+            musicFade: document.getElementById('musicFade'),
+            beatSync: document.getElementById('beatSync'),
             btnAiEnhance: document.getElementById('btnAiEnhance'),
             anthropicKey: document.getElementById('anthropicKey'),
             btnSaveKey: document.getElementById('btnSaveKey'),
@@ -1692,7 +1734,7 @@
                     const targetSec = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
                     const vidDur = (PV.video && isFinite(PV.video.duration) && PV.video.duration) ||
                                    Math.max(...RG.cache.scenes.map(s => Number(s.endTime ?? s.end ?? 0)), targetSec);
-                    const beatSec = (RG.currentProject.music && RG.cache.bpm) ? 60 / RG.cache.bpm : null;
+                    const beatSec = (RG.currentProject.music && RG.cache.bpm && (RG.currentProject.audio || {}).beatSync !== false) ? 60 / RG.cache.bpm : null;
                     const segments = buildReelSegments(RG.cache.scenes, vidDur, targetSec, beatSec);
                     if (!segments.length) {
                         showAlert('Keine geeigneten Szenen – exportiere ganzes Video.', 'info');
@@ -1881,7 +1923,7 @@
             return `${m}:${String(s).padStart(2, '0')}`;
         }
 
-        const PV = { video: null, canvas: null, ctx: null, segs: [], idx: 0, playing: false, raf: 0, elapsed: 0, total: 0, last: 0, seeking: false };
+        const PV = { video: null, canvas: null, ctx: null, music: null, segs: [], idx: 0, playing: false, raf: 0, elapsed: 0, total: 0, last: 0, seeking: false };
 
         function pvAspect() {
             const s = String((DOM.platformSelect && DOM.platformSelect.value) || 'tiktok').toLowerCase();
@@ -1895,7 +1937,7 @@
             const dur = (PV.video && isFinite(PV.video.duration) && PV.video.duration) || 60;
             const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
             const target = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
-            const beatSec = (RG.currentProject.music && RG.cache.bpm) ? 60 / RG.cache.bpm : null;
+            const beatSec = (RG.currentProject.music && RG.cache.bpm && (RG.currentProject.audio || {}).beatSync !== false) ? 60 / RG.cache.bpm : null;
             let segs = useReel ? buildReelSegments(RG.cache.scenes, dur, target, beatSec) : [{ start: 0, end: Math.min(dur, 60) }];
             if (!segs.length) segs = [{ start: 0, end: Math.min(dur, 60) }];
             return segs;
@@ -1926,7 +1968,8 @@
             try { ctx.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh); } catch (e) {}
             ctx.filter = 'none';
             const hook = (RG.currentProject.timeline && RG.currentProject.timeline.hook) || '';
-            if (hook && PV.elapsed < 3) pvDrawText(hook, 0.22, 0.075);
+            const hookDur = (RG.currentProject.timeline && RG.currentProject.timeline.hookDuration) || 3;
+            if (hook && PV.elapsed < hookDur) pvDrawText(hook, 0.22, 0.075);
             if (fx.textOverlay) pvDrawText(fx.textOverlay, 0.85, 0.05);
             if (RG.currentProject.subsEnabled && Array.isArray(RG.currentProject.subtitles) && RG.currentProject.subtitles.length && PV.total) {
                 const subs = RG.currentProject.subtitles, ld = PV.total / subs.length;
@@ -1991,6 +2034,13 @@
             }
             const blob = video.data instanceof Blob ? video.data : new Blob([video.data], { type: video.type || 'video/mp4' });
             PV.video.src = URL.createObjectURL(blob);
+
+            // Musik für die Vorschau (hörbar mit eingestellter Lautstärke)
+            if (RG.currentProject.music) {
+                if (!PV.music) { PV.music = document.createElement('audio'); PV.music.loop = true; PV.music.style.display = 'none'; DOM.previewCanvas.appendChild(PV.music); }
+                const mb = RG.currentProject.music.data instanceof Blob ? RG.currentProject.music.data : new Blob([RG.currentProject.music.data], { type: RG.currentProject.music.type || 'audio/mpeg' });
+                PV.music.src = URL.createObjectURL(mb);
+            }
         }
 
         // Baut Segmente/Format neu aus den aktuellen Einstellungen und zeigt ein Standbild
@@ -2008,13 +2058,20 @@
         function pvPlay() {
             if (!PV.video) return;
             PV.playing = true; PV.last = performance.now();
+            const a = RG.currentProject.audio || {};
+            PV.video.muted = (a.keepVideoAudio === false);
             try { PV.video.play(); } catch (e) {}
+            if (PV.music) {
+                PV.music.volume = (a.musicVolume != null ? a.musicVolume : 0.8);
+                try { PV.music.currentTime = 0; PV.music.play(); } catch (e) {}
+            }
             DOM.btnPlayPause.textContent = '⏸ Pause';
             if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '⏹ Vorschau stoppen';
         }
         function pvPause() {
             PV.playing = false;
             if (PV.video) { try { PV.video.pause(); } catch (e) {} }
+            if (PV.music) { try { PV.music.pause(); } catch (e) {} }
             DOM.btnPlayPause.textContent = '▶ Play';
             if (DOM.btnPreviewReel) DOM.btnPreviewReel.textContent = '👁 Reel-Vorschau';
         }
@@ -2080,6 +2137,32 @@
         if (DOM.platformSelect) DOM.platformSelect.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
         if (DOM.reelLength) DOM.reelLength.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
         if (DOM.reelMode) DOM.reelMode.addEventListener('change', () => { if (typeof refreshPreview === 'function') refreshPreview(); });
+
+        // Hook-Dauer
+        if (DOM.hookDuration) DOM.hookDuration.addEventListener('change', (e) => {
+            RG.currentProject.timeline.hookDuration = parseInt(e.target.value) || 3;
+            if (PV.ctx) pvDraw();
+        });
+
+        // Musik: Lautstärke / nur Musik / Fade / Takt
+        if (DOM.musicVolume) DOM.musicVolume.addEventListener('input', (e) => {
+            const v = (parseInt(e.target.value) || 0) / 100;
+            RG.currentProject.audio.musicVolume = v;
+            if (DOM.musicVolLabel) DOM.musicVolLabel.textContent = Math.round(v * 100) + '%';
+            if (PV.music) PV.music.volume = v;
+        });
+        if (DOM.musicOnly) DOM.musicOnly.addEventListener('change', (e) => {
+            RG.currentProject.audio.keepVideoAudio = !e.target.checked;
+            if (PV.video) PV.video.muted = e.target.checked;
+        });
+        if (DOM.musicFade) DOM.musicFade.addEventListener('change', (e) => {
+            RG.currentProject.audio.musicFadeIn = e.target.checked;
+            RG.currentProject.audio.musicFadeOut = e.target.checked;
+        });
+        if (DOM.beatSync) DOM.beatSync.addEventListener('change', (e) => {
+            RG.currentProject.audio.beatSync = e.target.checked;
+            if (typeof refreshPreview === 'function') refreshPreview();
+        });
 
         // Untertitel (optional)
         function syncSubs() {
@@ -2224,13 +2307,35 @@
         if (DOM.btnPreviewReel) DOM.btnPreviewReel.addEventListener('click', toggleReelPreview);
 
         // ===== FILMORA =====
+        // Upload-/Weiterbearbeiten-Links
+        const UPLOAD_URLS = {
+            tiktok: 'https://www.tiktok.com/upload',
+            instagram: 'https://www.instagram.com/',
+            youtube: 'https://www.youtube.com/upload',
+            twitter: 'https://twitter.com/compose/tweet',
+            canva: 'https://www.canva.com/create/videos/'
+        };
+        function openPlatform(key) {
+            if (RG.lastExportBlob) { try { downloadVideo(); } catch (e) {} }
+            else showAlert('Tipp: Zuerst exportieren, dann hochladen/öffnen.', 'info');
+            window.open(UPLOAD_URLS[key] || 'https://', '_blank');
+        }
+        ['Tiktok', 'Instagram', 'Youtube', 'Twitter'].forEach(p => {
+            const el = document.getElementById('btnShare' + p);
+            if (el) el.addEventListener('click', () => openPlatform(p.toLowerCase()));
+        });
+        const btnCanvaEl = document.getElementById('btnOpenCanva');
+        if (btnCanvaEl) btnCanvaEl.addEventListener('click', () => openPlatform('canva'));
+
         async function openInFilmora() {
-            if (!window.electron || !window.electron.filmora) {
-                showAlert('Filmora-Anbindung nur in der Desktop-App verfügbar.', 'danger');
-                return;
-            }
             if (!RG.lastExportBlob) {
                 showAlert('Bitte zuerst ein Video exportieren.', 'danger');
+                return;
+            }
+            // Im Browser: Filmora kann nicht direkt gestartet werden -> Datei speichern + Hinweis
+            if (!window.electron || !window.electron.filmora) {
+                await saveVideoAs();
+                showAlert('💾 Gespeichert. Öffne Filmora → „Importieren" → dein Video. (Automatisches Starten nur in der Desktop-App / .exe.)', 'info');
                 return;
             }
             try {
