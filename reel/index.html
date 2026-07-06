@@ -828,6 +828,19 @@
                             <button class="btn btn-ghost btn-sm" style="width: 100%;" id="btnFxSound">🔊 Ton ausblenden: Aus</button>
                         </div>
                     </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-title">📝 Untertitel (optional)</div>
+                        <label style="display:block; font-size: 11px; color: var(--text); margin-bottom: 6px;">
+                            <input type="checkbox" id="enableSubs" style="margin-right: 6px;">
+                            Untertitel einblenden
+                        </label>
+                        <textarea id="subsText" placeholder="Eine Zeile pro Untertitel…&#10;Wird gleichmäßig über das Reel verteilt."
+                            style="width:100%; min-height:70px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px; font-size:11px; resize:vertical;"></textarea>
+                        <div style="font-size:10px; color:var(--muted); margin-top:4px;">
+                            Tipp: kurze Zeilen. Werden unten ins Video eingebrannt.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1091,7 +1104,9 @@
                     fade: false,
                     textOverlay: '',
                     audioFade: false
-                }
+                },
+                subsEnabled: false,
+                subtitles: []
             },
             settings: {
                 platform: 'tiktok',
@@ -1159,6 +1174,8 @@
             btnFxTransition: document.getElementById('btnFxTransition'),
             btnFxText: document.getElementById('btnFxText'),
             btnFxSound: document.getElementById('btnFxSound'),
+            enableSubs: document.getElementById('enableSubs'),
+            subsText: document.getElementById('subsText'),
 
             // Settings
             resolutionSelect: document.getElementById('resolutionSelect'),
@@ -1534,7 +1551,7 @@
 
         // Wählt die besten Szenen aus und macht daraus zusammenhängende Segmente
         // (chronologisch), bis die Ziel-Länge erreicht ist. Max. 3 Minuten.
-        function buildReelSegments(scenes, videoDuration, targetSec) {
+        function buildReelSegments(scenes, videoDuration, targetSec, beatSec) {
             if (!scenes || !scenes.length) return [];
             // Nur manuell ausgewählte Szenen (Standard: alle ausgewählt)
             scenes = scenes.filter(s => s.selected !== false);
@@ -1542,6 +1559,8 @@
             targetSec = Math.min(Math.max(targetSec || 60, 5), 180);
             const MINLEN = 2.0; // Mindestlänge pro Segment (keine 0,5s-Zuckungen)
             const dur = isFinite(videoDuration) && videoDuration > 0 ? videoDuration : null;
+            // Musik-Schnitt: Segmentlänge auf ganze Beats runden (min. 2 Beats)
+            const snap = (beatSec && beatSec > 0.05) ? beatSec : 0;
 
             let segs = scenes.map(s => {
                 let a = Number(s.startTime ?? s.start ?? 0);
@@ -1549,6 +1568,11 @@
                 if (b - a < MINLEN) { const mid = (a + b) / 2; a = mid - MINLEN / 2; b = mid + MINLEN / 2; }
                 a = Math.max(0, a);
                 if (dur) b = Math.min(dur, b);
+                if (snap) {
+                    const beats = Math.max(2, Math.round((b - a) / snap));
+                    b = a + beats * snap;
+                    if (dur) b = Math.min(dur, b);
+                }
                 return { start: a, end: b, quality: Number(s.quality ?? 0) };
             }).filter(s => s.end > s.start);
 
@@ -1606,7 +1630,8 @@
                     const targetSec = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
                     const vidDur = (previewVideo && isFinite(previewVideo.duration) && previewVideo.duration) ||
                                    Math.max(...RG.cache.scenes.map(s => Number(s.endTime ?? s.end ?? 0)), targetSec);
-                    const segments = buildReelSegments(RG.cache.scenes, vidDur, targetSec);
+                    const beatSec = (RG.currentProject.music && RG.cache.bpm) ? 60 / RG.cache.bpm : null;
+                    const segments = buildReelSegments(RG.cache.scenes, vidDur, targetSec, beatSec);
                     if (!segments.length) {
                         showAlert('Keine geeigneten Szenen – exportiere ganzes Video.', 'info');
                         result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
@@ -1834,6 +1859,15 @@
             });
         }
 
+        // Untertitel (optional)
+        function syncSubs() {
+            RG.currentProject.subsEnabled = !!(DOM.enableSubs && DOM.enableSubs.checked);
+            RG.currentProject.subtitles = (DOM.subsText ? DOM.subsText.value : '')
+                .split('\n').map(l => l.trim()).filter(Boolean);
+        }
+        if (DOM.enableSubs) DOM.enableSubs.addEventListener('change', syncSubs);
+        if (DOM.subsText) DOM.subsText.addEventListener('input', syncSubs);
+
         // ===== REEL-VORSCHAU (ohne Export) =====
         let reelPreviewRAF = null, reelPreviewSegs = null, reelPreviewIdx = 0, reelPreviewStart = 0;
 
@@ -1875,7 +1909,8 @@
             const useReel = DOM.reelMode && DOM.reelMode.checked && RG.cache.scenes && RG.cache.scenes.length > 0;
             const vidDur = (previewVideo && isFinite(previewVideo.duration) && previewVideo.duration) || 60;
             const target = parseInt(DOM.reelLength && DOM.reelLength.value) || 60;
-            let segs = useReel ? buildReelSegments(RG.cache.scenes, vidDur, target) : [{ start: 0, end: Math.min(vidDur, 60) }];
+            const beatSec = (RG.currentProject.music && RG.cache.bpm) ? 60 / RG.cache.bpm : null;
+            let segs = useReel ? buildReelSegments(RG.cache.scenes, vidDur, target, beatSec) : [{ start: 0, end: Math.min(vidDur, 60) }];
             if (!segs.length) segs = [{ start: 0, end: Math.min(vidDur, 60) }];
             reelPreviewSegs = segs;
             reelPreviewIdx = 0;

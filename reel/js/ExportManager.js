@@ -52,6 +52,15 @@ const ExportManager = (() => {
         vintage: 'sepia(0.5) contrast(0.9) brightness(1.05)'
     };
 
+    // Aktive Untertitel-Zeile für den aktuellen Zeitpunkt (gleichmäßig verteilt)
+    function activeSubtitle(project, elapsed, total) {
+        if (!project || !project.subsEnabled) return '';
+        const subs = Array.isArray(project.subtitles) ? project.subtitles.filter(Boolean) : [];
+        if (!subs.length || !total) return '';
+        const lineDur = total / subs.length;
+        return subs[Math.min(subs.length - 1, Math.floor(elapsed / lineDur))] || '';
+    }
+
     async function exportVideo(project, options = {}, onProgress = () => {}) {
         if (!window.MediaRecorder) throw new Error('MediaRecorder wird nicht unterstützt');
         const video = project && project.videos && project.videos[0];
@@ -157,6 +166,8 @@ const ExportManager = (() => {
 
             if (hookText && vEl.currentTime < 3) drawText(hookText, outH * 0.25, 0.075);
             if (overlayText) drawText(overlayText, outH * 0.86, 0.055);
+            const sub = activeSubtitle(project, vEl.currentTime, maxDur);
+            if (sub) drawText(sub, outH * 0.90, 0.045);
 
             // Ein-/Ausblenden (Fade)
             if (fx.fade) {
@@ -300,6 +311,8 @@ const ExportManager = (() => {
                 ctx.filter = 'none';
                 if (hookText && outElapsed < 3) drawText(hookText, outH * 0.25, 0.075);
                 if (overlayText) drawText(overlayText, outH * 0.86, 0.055);
+                const sub = activeSubtitle(project, outElapsed, totalOut);
+                if (sub) drawText(sub, outH * 0.90, 0.045);
                 if (fx.fade) {
                     let a = 0;
                     if (outElapsed < 0.5) a = 1 - outElapsed / 0.5;
