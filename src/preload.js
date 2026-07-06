@@ -14,5 +14,15 @@ contextBridge.exposeInMainWorld('electron', {
 
     system: {
         openUrl: (url) => ipcRenderer.invoke('system:open-url', url)
+    },
+
+    fs: {
+        saveBuffer: (defaultName, buffer) => ipcRenderer.invoke('fs:save-buffer', { defaultName, buffer })
+    },
+
+    filmora: {
+        detect: () => ipcRenderer.invoke('filmora:detect'),
+        open: (filePath) => ipcRenderer.invoke('filmora:open', filePath),
+        exportWfp: (opts) => ipcRenderer.invoke('filmora:export-wfp', opts)
     }
 });

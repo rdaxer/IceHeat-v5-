@@ -1,273 +1,168 @@
 /**
- * ExportManager - MP4 Export mit FFmpeg.wasm
- * Unterstützt: Rendering, Komposition, Audio-Mixing
+ * ExportManager - echter Video-Export über die Chromium MediaRecorder-API.
+ * Läuft komplett lokal (kein FFmpeg, keine CDN, kein API-Key, offline-fähig).
+ *
+ * Komponiert das Quellvideo (cover-fit) auf ein Canvas im Zielformat,
+ * blendet den Hook-Text in den ersten 3 Sekunden ein, mischt Video-Ton
+ * und optionale Musik und nimmt das Ganze als MP4 (falls unterstützt)
+ * oder WebM auf.
  */
 const ExportManager = (() => {
-    let FFmpeg = null;
-    let isFFmpegLoaded = false;
 
-    // Lade FFmpeg.wasm
-    async function loadFFmpeg() {
-        if (isFFmpegLoaded) return FFmpeg;
-
-        try {
-            const { FFmpeg: FFmpegLib, fetchFile } = FFmpeg;
-            const ffmpeg = new FFmpegLib();
-
-            await ffmpeg.load();
-            isFFmpegLoaded = true;
-            FFmpeg = ffmpeg;
-            return ffmpeg;
-        } catch (err) {
-            console.error('FFmpeg load failed:', err);
-            return null;
+    function pickMime(preferMp4) {
+        const mp4 = ['video/mp4;codecs=h264,aac', 'video/mp4'];
+        const webm = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+        const list = preferMp4 ? mp4.concat(webm) : webm;
+        for (const c of list) {
+            if (window.MediaRecorder && MediaRecorder.isTypeSupported(c)) return c;
         }
+        return '';
     }
 
-    // Konvertiere Video zu MP4
-    async function convertToMP4(inputBlob, options = {}) {
-        const {
-            bitrate = '5000k',
-            fps = 30,
-            resolution = '1080',
-            codec = 'h264'
-        } = options;
-
-        const ffmpeg = await loadFFmpeg();
-        if (!ffmpeg) {
-            throw new Error('FFmpeg nicht verfügbar');
-        }
-
-        try {
-            // Schreibe Input-Datei
-            const inputData = new Uint8Array(await inputBlob.arrayBuffer());
-            ffmpeg.FS('writeFile', 'input.webm', inputData);
-
-            // Konstruiere FFmpeg-Kommando
-            const resolutionMap = {
-                '480': '854x480',
-                '720': '1280x720',
-                '1080': '1920x1080'
-            };
-
-            const cmd = [
-                '-i', 'input.webm',
-                '-c:v', codec,
-                '-b:v', bitrate,
-                '-r', fps.toString(),
-                '-s', resolutionMap[resolution] || '1920x1080',
-                '-c:a', 'aac',
-                '-b:a', '128k',
-                '-movflags', '+faststart',
-                'output.mp4'
-            ];
-
-            await ffmpeg.run(...cmd);
-
-            // Lese Output-Datei
-            const outputData = ffmpeg.FS('readFile', 'output.mp4');
-            const outputBlob = new Blob([outputData.buffer], {type: 'video/mp4'});
-
-            // Cleanup
-            ffmpeg.FS('unlink', 'input.webm');
-            ffmpeg.FS('unlink', 'output.mp4');
-
-            return outputBlob;
-        } catch (err) {
-            console.error('FFmpeg conversion error:', err);
-            throw err;
-        }
+    function aspectFor(platform) {
+        const p = String(platform || '').toLowerCase();
+        if (p.includes('4:5')) return [4, 5];
+        if (p.includes('16:9') || (p.includes('youtube') && !p.includes('short'))) return [16, 9];
+        return [9, 16]; // TikTok / Reels / Shorts – Standard
     }
 
-    // Rendern Timeline zu Canvas
-    async function renderTimeline(canvas, timeline, duration, fps = 30) {
-        const ctx = canvas.getContext('2d');
-        const frameCount = Math.floor(duration * fps);
-        const frames = [];
-
-        for (let frame = 0; frame < frameCount; frame++) {
-            const time = frame / fps;
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Zeichne aktive Clips
-            timeline.clips.forEach(clip => {
-                if (time >= clip.startTime && time <= clip.endTime) {
-                    // Vereinfachtes Rendering
-                    ctx.fillStyle = '#0ea5e9';
-                    ctx.fillRect(10, 10, 200, 150);
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '16px Arial';
-                    ctx.fillText(`Clip: ${time.toFixed(1)}s`, 20, 40);
-                }
-            });
-
-            // Speichere Frame (als DataURL)
-            frames.push(canvas.toDataURL('image/jpeg', 0.8));
-        }
-
-        return frames;
+    function blobFromMedia(m) {
+        return m.data instanceof Blob ? m.data : new Blob([m.data], { type: m.type || 'video/mp4' });
     }
 
-    // Mische Audio-Tracks
-    async function mixAudioTracks(videoBuffer, audioBuffer, audioStartTime = 0) {
-        try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-            // Dekodiere Audio
-            const decodedAudio = await audioContext.decodeAudioData(audioBuffer);
-
-            // Erstelle Output-Buffer
-            const outputBuffer = audioContext.createBuffer(
-                decodedAudio.numberOfChannels,
-                videoBuffer.length,
-                videoBuffer.sampleRate
-            );
-
-            const videoData = videoBuffer.getChannelData(0);
-            const audioData = decodedAudio.getChannelData(0);
-            const outputData = outputBuffer.getChannelData(0);
-
-            // Mix: Video + Audio
-            const audioStartSample = Math.floor(audioStartTime * videoBuffer.sampleRate);
-            for (let i = 0; i < outputBuffer.length; i++) {
-                let sample = videoData[i] || 0;
-
-                if (i >= audioStartSample && i < audioStartSample + audioData.length) {
-                    const audioIdx = i - audioStartSample;
-                    sample = (videoData[i] || 0) * 0.5 + audioData[audioIdx] * 0.5;
-                }
-
-                outputData[i] = Math.max(-1, Math.min(1, sample)); // Clamp
-            }
-
-            return outputBuffer;
-        } catch (err) {
-            console.error('Audio mixing error:', err);
-            return videoBuffer;
+    function wrapLines(ctx, text, maxW) {
+        const words = String(text).split(/\s+/);
+        const lines = [];
+        let cur = '';
+        for (const w of words) {
+            const t = cur ? cur + ' ' + w : w;
+            if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; }
+            else cur = t;
         }
+        if (cur) lines.push(cur);
+        return lines.slice(0, 4);
     }
 
-    // Füge Wasserzeichen hinzu
-    async function addWatermark(canvas, watermarkUrl, position = 'bottom-right') {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
+    async function exportVideo(project, options = {}, onProgress = () => {}) {
+        if (!window.MediaRecorder) throw new Error('MediaRecorder wird nicht unterstützt');
+        const video = project && project.videos && project.videos[0];
+        if (!video) throw new Error('Kein Video zum Exportieren vorhanden');
 
-            img.onload = () => {
-                const ctx = canvas.getContext('2d');
-                const padding = 10;
-                const scale = 0.2;
-                const width = img.width * scale;
-                const height = img.height * scale;
+        const fps = parseInt(options.fps) || 30;
+        const height = parseInt(String(options.resolution).replace(/\D/g, '')) || 1080;
+        const [aw, ah] = aspectFor(options.platform);
+        const outH = Math.round(height / 2) * 2;
+        const outW = Math.round(height * aw / ah / 2) * 2;
 
-                let x, y;
-                switch (position) {
-                    case 'top-left':
-                        x = padding;
-                        y = padding;
-                        break;
-                    case 'top-right':
-                        x = canvas.width - width - padding;
-                        y = padding;
-                        break;
-                    case 'bottom-left':
-                        x = padding;
-                        y = canvas.height - height - padding;
-                        break;
-                    case 'bottom-right':
-                        x = canvas.width - width - padding;
-                        y = canvas.height - height - padding;
-                        break;
-                    default:
-                        x = canvas.width - width - padding;
-                        y = canvas.height - height - padding;
-                }
-
-                ctx.drawImage(img, x, y, width, height);
-                resolve();
-            };
-
-            img.onerror = reject;
-            img.src = watermarkUrl;
+        // Quellvideo laden
+        const vEl = document.createElement('video');
+        vEl.playsInline = true;
+        vEl.src = URL.createObjectURL(blobFromMedia(video));
+        await new Promise((res, rej) => {
+            vEl.onloadedmetadata = res;
+            vEl.onerror = () => rej(new Error('Video konnte nicht geladen werden'));
         });
-    }
+        const maxDur = Math.min(vEl.duration || 60, 60);
 
-    // Erstelle GIF-Animation
-    async function createGIF(frames, frameDuration = 100) {
-        // Vereinfachte GIF-Erstellung (würde gif.js oder ähnlich brauchen)
-        return new Blob([frames.join('')], {type: 'image/gif'});
-    }
+        // Canvas im Zielformat
+        const canvas = document.createElement('canvas');
+        canvas.width = outW; canvas.height = outH;
+        const ctx = canvas.getContext('2d');
 
-    // Exportiere mit Fortschritt
-    async function exportVideo(timeline, options = {}, onProgress = null) {
-        const {
-            format = 'mp4',
-            bitrate = '5000k',
-            fps = 30,
-            resolution = '1080',
-            addWatermarkImg = null,
-            watermarkPosition = 'bottom-right'
-        } = options;
-
+        // Audio: Video-Ton + optionale Musik zusammenmischen
+        let audioDest = null, audioCtx = null, musicEl = null;
         try {
-            onProgress?.(10, 'Vorbereitung...');
-
-            // Schritt 1: Rendern
-            const canvas = document.createElement('canvas');
-            canvas.width = 1920;
-            canvas.height = 1080;
-
-            if (format === 'mp4' || format === 'webm') {
-                onProgress?.(30, 'Rendern...');
-                const frames = await renderTimeline(canvas, timeline, timeline.duration || 10, fps);
-
-                // Schritt 2: Wasserzeichen
-                if (addWatermarkImg) {
-                    onProgress?.(50, 'Wasserzeichen hinzufügen...');
-                    await addWatermark(canvas, addWatermarkImg, watermarkPosition);
-                }
-
-                // Schritt 3: Encoding
-                onProgress?.(70, 'Kodieren...');
-                const blob = new Blob([frames.join('')], {type: `video/${format}`});
-
-                // Schritt 4: Konvertierung (würde FFmpeg nutzen)
-                onProgress?.(90, 'Finalisierung...');
-
-                return {
-                    blob,
-                    format,
-                    duration: timeline.duration || 10,
-                    size: blob.size
-                };
-            } else if (format === 'gif') {
-                onProgress?.(50, 'GIF erstellen...');
-                const frames = await renderTimeline(canvas, timeline, timeline.duration || 10, fps);
-                const gifBlob = await createGIF(frames, 1000 / fps);
-                return {
-                    blob: gifBlob,
-                    format: 'gif',
-                    duration: timeline.duration || 10,
-                    size: gifBlob.size
-                };
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioDest = audioCtx.createMediaStreamDestination();
+            try {
+                const vNode = audioCtx.createMediaElementSource(vEl);
+                vNode.connect(audioDest);
+            } catch (e) { /* Video evtl. ohne Tonspur */ }
+            if (project.music) {
+                musicEl = document.createElement('audio');
+                musicEl.src = URL.createObjectURL(blobFromMedia(project.music));
+                musicEl.loop = true;
+                try {
+                    const mNode = audioCtx.createMediaElementSource(musicEl);
+                    mNode.connect(audioDest);
+                } catch (e) { /* ignore */ }
             }
+        } catch (e) { audioDest = null; }
 
-            onProgress?.(100, 'Fertig!');
-        } catch (err) {
-            console.error('Export error:', err);
-            throw err;
+        const canvasStream = canvas.captureStream(fps);
+        const tracks = canvasStream.getVideoTracks();
+        const allTracks = audioDest ? tracks.concat(audioDest.stream.getAudioTracks()) : tracks;
+        const stream = new MediaStream(allTracks);
+
+        const preferMp4 = String(options.format || 'mp4').toLowerCase().includes('mp4');
+        const mime = pickMime(preferMp4);
+        const bitrate = (parseInt(options.bitrate) || 6000) * 1000;
+        const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: bitrate } : undefined);
+        const chunks = [];
+        rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+
+        const hookText = (project.timeline && (project.timeline.hook ||
+            (project.timeline.hookConfig && project.timeline.hookConfig.text))) || '';
+
+        function drawFrame() {
+            const vw = vEl.videoWidth || outW, vh = vEl.videoHeight || outH;
+            const scale = Math.max(outW / vw, outH / vh);
+            const dw = vw * scale, dh = vh * scale;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, outW, outH);
+            ctx.drawImage(vEl, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
+
+            if (hookText && vEl.currentTime < 3) {
+                const fontSize = Math.round(outW * 0.075);
+                ctx.font = `900 ${fontSize}px Barlow, Arial, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const lines = wrapLines(ctx, hookText, outW * 0.86);
+                const startY = outH * 0.25;
+                lines.forEach((ln, i) => {
+                    const ly = startY + i * fontSize * 1.15;
+                    ctx.lineWidth = fontSize * 0.18;
+                    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+                    ctx.strokeText(ln, outW / 2, ly);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(ln, outW / 2, ly);
+                });
+            }
         }
+
+        await new Promise(async (resolve, reject) => {
+            rec.onstop = resolve;
+            rec.onerror = e => reject((e && e.error) || new Error('Aufnahme-Fehler'));
+            let raf = 0;
+            const tick = () => {
+                drawFrame();
+                const pct = Math.min(99, Math.round((vEl.currentTime / maxDur) * 100));
+                onProgress(pct, `Exportiere… ${vEl.currentTime.toFixed(1)}s / ${maxDur.toFixed(1)}s`);
+                if (vEl.currentTime >= maxDur || vEl.ended) {
+                    cancelAnimationFrame(raf);
+                    try { if (rec.state !== 'inactive') rec.stop(); } catch (e) {}
+                    vEl.pause();
+                    if (musicEl) musicEl.pause();
+                    return;
+                }
+                raf = requestAnimationFrame(tick);
+            };
+            try { rec.start(100); } catch (e) { return reject(e); }
+            try { if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume(); } catch (e) {}
+            try { vEl.currentTime = 0; await vEl.play(); } catch (e) {}
+            if (musicEl) { try { musicEl.currentTime = 0; await musicEl.play(); } catch (e) {} }
+            raf = requestAnimationFrame(tick);
+            // Sicherheits-Stopp
+            setTimeout(() => { try { if (rec.state !== 'inactive') rec.stop(); } catch (e) {} }, (maxDur + 6) * 1000);
+        });
+
+        const outType = mime && mime.indexOf('video/mp4') === 0 ? 'mp4' : 'webm';
+        const blob = new Blob(chunks, { type: mime || 'video/webm' });
+        onProgress(100, '✅ Export abgeschlossen');
+        try { URL.revokeObjectURL(vEl.src); } catch (e) {}
+        if (musicEl) { try { URL.revokeObjectURL(musicEl.src); } catch (e) {} }
+        return { blob, format: outType, size: blob.size, duration: maxDur };
     }
 
-    // Öffentliche API
-    return {
-        loadFFmpeg,
-        convertToMP4,
-        renderTimeline,
-        mixAudioTracks,
-        addWatermark,
-        createGIF,
-        exportVideo
-    };
+    return { exportVideo };
 })();

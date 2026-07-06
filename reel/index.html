@@ -978,6 +978,22 @@
                     </button>
                 </div>
 
+                <!-- FILMORA -->
+                <div class="upload-card" style="margin-top: 12px;">
+                    <h3>🎬 In Filmora bearbeiten</h3>
+                    <p style="font-size: 11px; color: var(--muted); margin-bottom: 10px;">
+                        Übergibt das exportierte Video an Wondershare Filmora zum Import.
+                        (Filmora bietet keine offizielle Schnittstelle – der Import des MP4 ist der zuverlässige Weg.)
+                    </p>
+                    <label style="display:block; font-size: 11px; color: var(--muted); margin-bottom: 10px;">
+                        <input type="checkbox" id="enableWfp" style="margin-right: 6px;">
+                        Zusätzlich Filmora-Projektdatei (.wfp) erzeugen – experimentell
+                    </label>
+                    <button class="btn btn-ghost" id="btnOpenFilmora" style="width: 100%;" disabled>
+                        🎬 In Filmora öffnen
+                    </button>
+                </div>
+
                 <!-- SHARING -->
                 <div class="upload-card">
                     <h3>📱 Teilen</h3>
@@ -1127,6 +1143,8 @@
             exportProgress: document.getElementById('exportProgress'),
             btnStartExport: document.getElementById('btnStartExport'),
             btnDownloadVideo: document.getElementById('btnDownloadVideo'),
+            btnOpenFilmora: document.getElementById('btnOpenFilmora'),
+            enableWfp: document.getElementById('enableWfp'),
             projectsList: document.getElementById('projectsList'),
 
             // Modal
@@ -1461,27 +1479,22 @@
 
                 // Sammle Export-Optionen
                 const exportOptions = {
+                    platform: DOM.platformSelect ? DOM.platformSelect.value : 'tiktok',
                     format: DOM.formatSelect.value,
                     bitrate: DOM.bitrateSelect.value,
                     fps: parseInt(DOM.fpsSelect.value),
                     resolution: DOM.resolutionSelect.value.replace('p', '')
                 };
 
-                // Erstelle Timeline-Objekt
-                const timeline = {
-                    clips: RG.currentProject.timeline.clips,
-                    duration: 10,
-                    hook: RG.currentProject.timeline.hook
-                };
-
-                // Nutze ExportManager
-                const result = await ExportManager.exportVideo(timeline, exportOptions, updateProgress);
+                // Echter Export via MediaRecorder (lokal, offline)
+                const result = await ExportManager.exportVideo(RG.currentProject, exportOptions, updateProgress);
 
                 DOM.exportProgress.style.width = '100%';
                 DOM.exportStatus.textContent = '✅ Export abgeschlossen!';
 
                 const url = URL.createObjectURL(result.blob);
                 RG.currentProject.exportUrl = url;
+                RG.lastExportBlob = result.blob;
                 RG.currentProject.lastExport = {
                     url,
                     format: result.format,
@@ -1490,9 +1503,12 @@
                     timestamp: new Date()
                 };
 
+                // Filmora-Button freischalten
+                if (DOM.btnOpenFilmora) DOM.btnOpenFilmora.disabled = false;
+
                 // Speichere Projekt mit Export-Info
                 await VideoManager.saveProject(RG.currentProject);
-                showAlert(`✅ Video exportiert! (${(result.size / 1024 / 1024).toFixed(1)}MB)`, 'success');
+                showAlert(`✅ Video exportiert! (${(result.size / 1024 / 1024).toFixed(1)}MB, ${result.format.toUpperCase()})`, 'success');
 
                 // Auto-Upload wenn aktiviert
                 if (DOM.enableAutoUpload.checked) {
@@ -1514,9 +1530,10 @@
                 return;
             }
 
+            const ext = (RG.currentProject.lastExport && RG.currentProject.lastExport.format) || 'webm';
             const a = document.createElement('a');
             a.href = RG.currentProject.exportUrl;
-            a.download = `reel-${RG.currentProject.id}.mp4`;
+            a.download = `videoreel-${RG.currentProject.id}.${ext}`;
             a.click();
             showAlert('✅ Download gestartet!', 'success');
         }
@@ -1585,6 +1602,45 @@
         DOM.btnMusicSync.addEventListener('click', detectMusicBPM);
         DOM.btnStartExport.addEventListener('click', startExport);
         DOM.btnDownloadVideo.addEventListener('click', downloadVideo);
+        if (DOM.btnOpenFilmora) DOM.btnOpenFilmora.addEventListener('click', openInFilmora);
+
+        // ===== FILMORA =====
+        async function openInFilmora() {
+            if (!window.electron || !window.electron.filmora) {
+                showAlert('Filmora-Anbindung nur in der Desktop-App verfügbar.', 'danger');
+                return;
+            }
+            if (!RG.lastExportBlob) {
+                showAlert('Bitte zuerst ein Video exportieren.', 'danger');
+                return;
+            }
+            try {
+                const buf = await RG.lastExportBlob.arrayBuffer();
+                const ext = (RG.currentProject.lastExport && RG.currentProject.lastExport.format) || 'mp4';
+                const saved = await window.electron.fs.saveBuffer(`videoreel-${RG.currentProject.id}.${ext}`, buf);
+                if (!saved || !saved.saved) return;
+
+                if (DOM.enableWfp && DOM.enableWfp.checked) {
+                    const wfp = await window.electron.filmora.exportWfp({
+                        mediaPath: saved.path,
+                        title: (DOM.videoTitle && DOM.videoTitle.value) || 'VideoReel',
+                        fps: parseInt(DOM.fpsSelect.value) || 30,
+                        width: 1080, height: 1920
+                    });
+                    if (wfp && wfp.ok) showAlert('📄 Filmora-Projekt (.wfp) erstellt (experimentell).', 'info');
+                }
+
+                const res = await window.electron.filmora.open(saved.path);
+                if (res && res.launched === 'filmora') {
+                    showAlert('🎬 Filmora wird mit deinem Video gestartet…', 'success');
+                } else {
+                    showAlert('Filmora nicht gefunden – Datei im Explorer markiert. Einfach in Filmora ziehen.', 'info');
+                }
+            } catch (err) {
+                console.error('Filmora open failed:', err);
+                showAlert('Konnte Video nicht an Filmora übergeben.', 'danger');
+            }
+        }
 
         // Modal close
         DOM.btnModalCancel.addEventListener('click', closeModal);

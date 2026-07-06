@@ -1,5 +1,7 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
 
 let mainWindow;
 
@@ -129,3 +131,77 @@ ipcMain.handle('dialog:open-file', (e, options) => dialog.showOpenDialog(mainWin
 ipcMain.handle('dialog:save-file', (e, options) => dialog.showSaveDialog(mainWindow, options || {}));
 ipcMain.handle('dialog:message', (e, options) => dialog.showMessageBox(mainWindow, options || {}));
 ipcMain.handle('system:open-url', (e, url) => shell.openExternal(url));
+
+// ---- Save exported video bytes to disk ----
+ipcMain.handle('fs:save-buffer', async (e, { defaultName, buffer }) => {
+    const r = await dialog.showSaveDialog(mainWindow, {
+        title: 'Video speichern',
+        defaultPath: defaultName || 'videoreel.mp4'
+    });
+    if (r.canceled || !r.filePath) return { saved: false };
+    fs.writeFileSync(r.filePath, Buffer.from(buffer));
+    return { saved: true, path: r.filePath };
+});
+
+// ---- Filmora integration (best-effort, no official API exists) ----
+function findFilmora() {
+    const roots = [process.env['ProgramFiles'], process.env['ProgramFiles(x86)']].filter(Boolean);
+    for (const root of roots) {
+        const base = path.join(root, 'Wondershare');
+        let dirs = [];
+        try { dirs = fs.readdirSync(base); } catch (e) { continue; }
+        for (const d of dirs) {
+            if (!/filmora/i.test(d)) continue;
+            const dir = path.join(base, d);
+            let files = [];
+            try { files = fs.readdirSync(dir); } catch (e) { continue; }
+            const exe = files.find(f => /filmora.*\.exe$/i.test(f) && !/launcher|unins|crash/i.test(f))
+                     || files.find(f => /\.exe$/i.test(f) && /filmora/i.test(f));
+            if (exe) return path.join(dir, exe);
+        }
+    }
+    return null;
+}
+
+ipcMain.handle('filmora:detect', () => {
+    const exe = findFilmora();
+    return { installed: !!exe, path: exe || null };
+});
+
+// Open the exported media so it can be imported into Filmora.
+ipcMain.handle('filmora:open', async (e, filePath) => {
+    if (!filePath || !fs.existsSync(filePath)) return { ok: false, error: 'Datei nicht gefunden' };
+    const exe = findFilmora();
+    if (exe) {
+        try {
+            spawn(exe, [filePath], { detached: true, stdio: 'ignore' }).unref();
+            return { ok: true, launched: 'filmora' };
+        } catch (err) { /* fall through */ }
+    }
+    // Fallback: reveal the file so the user can drag it into Filmora
+    shell.showItemInFolder(filePath);
+    return { ok: true, launched: 'explorer', filmoraFound: false };
+});
+
+// Experimental Filmora project sidecar (.wfp). Proprietary format – not guaranteed
+// to open in every Filmora version; the reliable path is importing the MP4 above.
+ipcMain.handle('filmora:export-wfp', (e, { mediaPath, title, fps, width, height }) => {
+    if (!mediaPath) return { ok: false, error: 'Kein Medienpfad' };
+    const wfpPath = mediaPath.replace(/\.[^.]+$/, '') + '.wfp';
+    const xml =
+`<?xml version="1.0" encoding="UTF-8"?>
+<Project version="1" generator="VideoReel Pro">
+  <Settings title="${(title || 'VideoReel').replace(/[<>&"]/g, '')}" width="${width || 1080}" height="${height || 1920}" fps="${fps || 30}"/>
+  <Timeline>
+    <Track type="video">
+      <Clip src="${mediaPath.replace(/[<>&"]/g, '')}" start="0"/>
+    </Track>
+  </Timeline>
+</Project>`;
+    try {
+        fs.writeFileSync(wfpPath, xml, 'utf8');
+        return { ok: true, path: wfpPath };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+});
