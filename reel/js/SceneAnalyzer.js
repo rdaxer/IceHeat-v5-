@@ -189,6 +189,7 @@ const SceneAnalyzer = (() => {
                             duration: frames[i - 1].timestamp - currentScene.startTime,
                             sharpness: currentScene.sharpness,
                             motion: currentScene.motion,
+                            thumbnail: (frames[currentScene.startIdx] || {}).canvas || null,
                             quality: calculateQuality(
                                 currentScene.sharpness,
                                 currentScene.motion
@@ -215,6 +216,7 @@ const SceneAnalyzer = (() => {
                 duration: frames[frames.length - 1].timestamp - currentScene.startTime,
                 sharpness: currentScene.sharpness,
                 motion: currentScene.motion,
+                thumbnail: (frames[currentScene.startIdx] || {}).canvas || null,
                 quality: calculateQuality(
                     currentScene.sharpness,
                     currentScene.motion

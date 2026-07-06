@@ -10,12 +10,10 @@
     <meta name="apple-mobile-web-app-capable" content="true">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="../icon-192.png">
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 
-    <!-- Optionale Zusatz-Bibliotheken (verbessern Analyse, sind aber nicht Pflicht) -->
-    <script async src="https://docs.opencv.org/4.10.0/opencv.js" onerror="console.warn('OpenCV nicht geladen – Analyse nutzt internen Fallback')"></script>
-    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" onerror="console.warn('Tesseract nicht geladen')"></script>
-    <script async src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js" onerror="console.warn('Tone.js nicht geladen')"></script>
+    <!-- Komplett offline: keine externen Fonts/Bibliotheken.
+         Analyse läuft lokal (Canvas), Export über die eingebaute
+         MediaRecorder-API. Kein CDN, kein Key, kein Internet nötig. -->
 
     <style>
         :root {
@@ -46,7 +44,7 @@
         }
 
         body {
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
             display: flex;
@@ -127,7 +125,7 @@
             cursor: pointer;
             transition: all 0.15s;
             border: none;
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -369,7 +367,7 @@
             border-radius: 6px;
             color: var(--text);
             font-size: 12px;
-            font-family: 'Barlow', sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
             padding: 8px 12px;
             outline: none;
             transition: border-color 0.15s;
@@ -1419,17 +1417,19 @@
                             duration: scene.duration,
                             quality: scene.quality / 100,
                             sharpness: scene.sharpness,
-                            motion: scene.motion
+                            motion: scene.motion,
+                            thumbnail: scene.thumbnail || null,
+                            selected: true
                         }))
                         .sort((a, b) => b.quality - a.quality);
 
-                    showAlert(`✅ ${scenes.length} Szenen erkannt!`, 'success');
+                    showAlert(`✅ ${scenes.length} Szenen erkannt! Wähle/entferne sie im Editor.`, 'success');
                 } else {
                     // Fallback: Demo-Szenen
                     RG.cache.scenes = [
-                        {id: 0, startTime: 0, endTime: 3, quality: 0.95, duration: 3},
-                        {id: 1, startTime: 5, endTime: 8, quality: 0.87, duration: 3},
-                        {id: 2, startTime: 12, endTime: 15, quality: 0.92, duration: 3}
+                        {id: 0, startTime: 0, endTime: 3, quality: 0.95, duration: 3, selected: true},
+                        {id: 1, startTime: 5, endTime: 8, quality: 0.87, duration: 3, selected: true},
+                        {id: 2, startTime: 12, endTime: 15, quality: 0.92, duration: 3, selected: true}
                     ];
                     showAlert('✅ Szenen-Demo geladen!', 'info');
                 }
@@ -1471,17 +1471,39 @@
         }
 
         function renderSceneList() {
-            DOM.sceneList.innerHTML = RG.cache.scenes.map((scene, idx) => {
+            if (!RG.cache.scenes || !RG.cache.scenes.length) {
+                DOM.sceneList.innerHTML = '<div style="font-size:10px;color:var(--muted);">Keine Szenen erkannt</div>';
+                return;
+            }
+            const selCount = RG.cache.scenes.filter(s => s.selected !== false).length;
+            const selDur = RG.cache.scenes.filter(s => s.selected !== false)
+                .reduce((a, s) => a + (Number(s.endTime ?? s.end ?? 0) - Number(s.startTime ?? s.start ?? 0)), 0);
+            const head = `<div style="font-size:10px;color:var(--muted);margin-bottom:6px;">${selCount}/${RG.cache.scenes.length} gewählt · ~${selDur.toFixed(0)}s</div>`;
+            DOM.sceneList.innerHTML = head + RG.cache.scenes.map((scene, idx) => {
                 const start = Number(scene.startTime ?? scene.start ?? 0);
                 const end = Number(scene.endTime ?? scene.end ?? 0);
                 const quality = Number(scene.quality ?? 0);
+                const on = scene.selected !== false;
+                const thumb = scene.thumbnail
+                    ? `<img src="${scene.thumbnail}" style="width:44px;height:26px;object-fit:cover;border-radius:3px;flex-shrink:0;">`
+                    : `<div style="width:44px;height:26px;border-radius:3px;background:var(--bg);flex-shrink:0;"></div>`;
                 return `
-                <div style="background: var(--surface2); padding: 6px; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); font-size: 10px;">
-                    <div style="font-weight: 700; color: var(--ice);">Szene ${idx + 1}</div>
-                    <div style="color: var(--muted);">${start.toFixed(1)}s - ${end.toFixed(1)}s</div>
-                    <div style="color: var(--success); font-weight: 600;">${(quality * 100).toFixed(0)}% Qualität</div>
+                <div class="scene-item" data-idx="${idx}" style="display:flex;align-items:center;gap:6px;background:var(--surface2);padding:5px;border-radius:4px;cursor:pointer;border:1px solid ${on ? 'var(--ice)' : 'var(--border)'};margin-bottom:4px;opacity:${on ? '1' : '0.5'};">
+                    <input type="checkbox" ${on ? 'checked' : ''} style="pointer-events:none;">
+                    ${thumb}
+                    <div style="flex:1;min-width:0;font-size:10px;">
+                        <div style="font-weight:700;color:var(--ice);">Szene ${idx + 1}</div>
+                        <div style="color:var(--muted);">${start.toFixed(1)}–${end.toFixed(1)}s · ${(quality * 100).toFixed(0)}%</div>
+                    </div>
                 </div>`;
             }).join('');
+            DOM.sceneList.querySelectorAll('.scene-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const i = parseInt(el.dataset.idx);
+                    RG.cache.scenes[i].selected = RG.cache.scenes[i].selected === false;
+                    renderSceneList();
+                });
+            });
         }
 
         async function generateHook() {
@@ -1514,6 +1536,9 @@
         // (chronologisch), bis die Ziel-Länge erreicht ist. Max. 3 Minuten.
         function buildReelSegments(scenes, videoDuration, targetSec) {
             if (!scenes || !scenes.length) return [];
+            // Nur manuell ausgewählte Szenen (Standard: alle ausgewählt)
+            scenes = scenes.filter(s => s.selected !== false);
+            if (!scenes.length) return [];
             targetSec = Math.min(Math.max(targetSec || 60, 5), 180);
             const MINLEN = 2.0; // Mindestlänge pro Segment (keine 0,5s-Zuckungen)
             const dur = isFinite(videoDuration) && videoDuration > 0 ? videoDuration : null;
