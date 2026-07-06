@@ -797,6 +797,7 @@
                         </button>
                         <input type="text" class="form-input" id="hookInput" placeholder="Hook-Text (editierbar)…"
                             style="width:100%; margin-top:6px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px; font-size:12px;">
+                        <button class="btn btn-primary" style="width:100%; margin-top:6px; background:#7c3aed;" id="btnAiEnhance">✨ Mit KI verbessern (Claude)</button>
                         <div style="font-size: 10px; color: var(--muted); margin-top:4px;" id="hookPreview">
                             Tipp: Vorschlagen klicken oder eigenen Text tippen.
                         </div>
@@ -933,6 +934,25 @@
                         <button class="btn btn-ghost" id="btnSuggestHashtags">💡 Hashtag-Vorschläge</button>
                     </div>
 
+                    <!-- KI (optional) -->
+                    <div class="upload-card gap-16" style="margin-top: 20px;">
+                        <h3>✨ KI-Veredelung (optional)</h3>
+                        <p style="font-size: 12px; color: var(--muted); margin-bottom: 10px;">
+                            Claude schaut sich die erkannten Szenen an und schlägt Hook, Beschreibung,
+                            Hashtags und die besten Szenen vor. Braucht einen eigenen Anthropic-API-Schlüssel.
+                        </p>
+                        <div class="form-group">
+                            <label class="form-label">Anthropic API-Schlüssel</label>
+                            <input type="password" class="form-input" id="anthropicKey" placeholder="sk-ant-…" autocomplete="off">
+                        </div>
+                        <div style="font-size: 10px; color: var(--muted); margin: -6px 0 10px;">
+                            ⚠️ Wird nur lokal im Browser gespeichert und direkt an Anthropic gesendet.
+                            Jeder Aufruf verbraucht Guthaben deines Kontos. Schlüssel:
+                            <span id="aiKeyStatus">nicht gesetzt</span>.
+                        </div>
+                        <button class="btn btn-ghost btn-sm" id="btnSaveKey">Schlüssel speichern</button>
+                    </div>
+
                     <!-- UPLOAD SETTINGS -->
                     <div class="upload-card gap-16" style="margin-top: 20px;">
                         <h3>☁️ Auto-Upload</h3>
@@ -1012,6 +1032,9 @@
                     <button class="btn btn-ghost" id="btnDownloadVideo" style="flex: 1;">
                         ⬇️ Herunterladen
                     </button>
+                    <button class="btn btn-ghost" id="btnSaveAs" style="flex: 1;">
+                        💾 Speichern unter…
+                    </button>
                 </div>
 
                 <!-- FILMORA -->
@@ -1084,6 +1107,7 @@
     <script src="api/video-export-api.js"></script>
     <script src="api/filmora-api.js"></script>
     <script src="api/filmora-export-api.js"></script>
+    <script src="api/ai-enhance.js"></script>
 
     <!-- MAIN SCRIPT -->
     <script>
@@ -1166,6 +1190,10 @@
             hookPreview: document.getElementById('hookPreview'),
             btnGenerateHook: document.getElementById('btnGenerateHook'),
             hookInput: document.getElementById('hookInput'),
+            btnAiEnhance: document.getElementById('btnAiEnhance'),
+            anthropicKey: document.getElementById('anthropicKey'),
+            btnSaveKey: document.getElementById('btnSaveKey'),
+            aiKeyStatus: document.getElementById('aiKeyStatus'),
             btnPreviewReel: document.getElementById('btnPreviewReel'),
             reelInfo: document.getElementById('reelInfo'),
             btnMusicSync: document.getElementById('btnMusicSync'),
@@ -1756,7 +1784,41 @@
         DOM.btnMusicSync.addEventListener('click', detectMusicBPM);
         DOM.btnStartExport.addEventListener('click', startExport);
         DOM.btnDownloadVideo.addEventListener('click', downloadVideo);
+        const btnSaveAs = document.getElementById('btnSaveAs');
+        if (btnSaveAs) btnSaveAs.addEventListener('click', saveVideoAs);
         if (DOM.btnOpenFilmora) DOM.btnOpenFilmora.addEventListener('click', openInFilmora);
+
+        // Speichern unter … – Zielordner wählen (Electron-Dialog, sonst
+        // Datei-Auswahl des Browsers, sonst normaler Download)
+        async function saveVideoAs() {
+            if (!RG.lastExportBlob) { showAlert('Bitte zuerst exportieren.', 'danger'); return; }
+            const ext = (RG.currentProject.lastExport && RG.currentProject.lastExport.format) || 'webm';
+            const name = `videoreel-${RG.currentProject.id}.${ext}`;
+            try {
+                if (window.electron && window.electron.fs) {
+                    const buf = await RG.lastExportBlob.arrayBuffer();
+                    const r = await window.electron.fs.saveBuffer(name, buf);
+                    if (r && r.saved) showAlert('✅ Gespeichert: ' + r.path, 'success');
+                    return;
+                }
+                if (window.showSaveFilePicker) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: name,
+                        types: [{ description: 'Video', accept: { ['video/' + ext]: ['.' + ext] } }]
+                    });
+                    const w = await handle.createWritable();
+                    await w.write(RG.lastExportBlob);
+                    await w.close();
+                    showAlert('✅ Gespeichert: ' + handle.name, 'success');
+                    return;
+                }
+                downloadVideo();
+            } catch (err) {
+                if (err && err.name === 'AbortError') return;
+                console.error('SaveAs failed:', err);
+                downloadVideo();
+            }
+        }
 
         // ===== PREVIEW / PLAYER =====
         const CSS_FILTERS = {
@@ -1867,6 +1929,58 @@
         }
         if (DOM.enableSubs) DOM.enableSubs.addEventListener('change', syncSubs);
         if (DOM.subsText) DOM.subsText.addEventListener('input', syncSubs);
+
+        // ===== KI-VEREDELUNG (optional, Claude) =====
+        function refreshKeyStatus() {
+            if (!DOM.aiKeyStatus) return;
+            DOM.aiKeyStatus.textContent = (typeof AIEnhance !== 'undefined' && AIEnhance.hasKey()) ? 'gesetzt ✓' : 'nicht gesetzt';
+        }
+        if (DOM.btnSaveKey) DOM.btnSaveKey.addEventListener('click', () => {
+            if (typeof AIEnhance === 'undefined') return;
+            AIEnhance.setKey((DOM.anthropicKey.value || '').trim());
+            DOM.anthropicKey.value = '';
+            refreshKeyStatus();
+            showAlert('🔑 Schlüssel lokal gespeichert.', 'success');
+        });
+        refreshKeyStatus();
+
+        async function aiEnhance() {
+            if (typeof AIEnhance === 'undefined') { showAlert('KI-Modul nicht geladen.', 'danger'); return; }
+            if (!AIEnhance.hasKey()) {
+                showAlert('Bitte zuerst den Claude-API-Schlüssel in den Einstellungen speichern.', 'danger');
+                switchTab('settings');
+                return;
+            }
+            const btn = DOM.btnAiEnhance;
+            const label = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = '✨ Claude denkt…'; }
+            try {
+                const res = await AIEnhance.enhance({
+                    title: (DOM.videoTitle && DOM.videoTitle.value) || '',
+                    description: (DOM.videoDescription && DOM.videoDescription.value) || '',
+                    platform: (DOM.platformSelect && DOM.platformSelect.value) || 'tiktok',
+                    scenes: RG.cache.scenes || []
+                });
+                if (res.hook) {
+                    RG.currentProject.timeline.hook = res.hook;
+                    if (DOM.hookInput) DOM.hookInput.value = res.hook;
+                }
+                if (res.description && DOM.videoDescription) DOM.videoDescription.value = res.description;
+                if (res.hashtags && res.hashtags.length && DOM.hashtagsInput) DOM.hashtagsInput.value = res.hashtags.join(' ');
+                if (res.bestScenes && res.bestScenes.length && RG.cache.scenes && RG.cache.scenes.length) {
+                    const keep = new Set(res.bestScenes);
+                    RG.cache.scenes.forEach((s, i) => { s.selected = keep.has(i); });
+                    renderSceneList();
+                }
+                showAlert('✨ Von Claude verbessert – Hook, Text, Hashtags & beste Szenen übernommen.', 'success');
+            } catch (err) {
+                console.error('AI enhance failed:', err);
+                showAlert('KI fehlgeschlagen: ' + err.message, 'danger');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = label; }
+            }
+        }
+        if (DOM.btnAiEnhance) DOM.btnAiEnhance.addEventListener('click', aiEnhance);
 
         // ===== REEL-VORSCHAU (ohne Export) =====
         let reelPreviewRAF = null, reelPreviewSegs = null, reelPreviewIdx = 0, reelPreviewStart = 0;
