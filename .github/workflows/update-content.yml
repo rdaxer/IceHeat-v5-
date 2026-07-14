@@ -1,0 +1,42 @@
+name: Update content (YouTube feed)
+
+on:
+  schedule:
+    - cron: '0 5,17 * * *'   # 2x taeglich (05:00 & 17:00 UTC)
+  workflow_dispatch:          # manueller Start moeglich
+
+permissions:
+  contents: write
+
+concurrency:
+  group: content-update
+  cancel-in-progress: false
+
+jobs:
+  youtube:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch latest YouTube videos
+        run: node scripts/fetch-youtube.mjs
+        env:
+          YT_CHANNEL_ID: UCIkUWT8IvWdasBUywWY22OA
+
+      - name: Commit changes if any
+        run: |
+          if [[ -n "$(git status --porcelain data/videos.json)" ]]; then
+            git config user.name  "innisar-bot"
+            git config user.email "actions@github.com"
+            git add data/videos.json
+            git commit -m "chore: update YouTube feed [skip ci]"
+            git push
+          else
+            echo "No changes in data/videos.json"
+          fi
