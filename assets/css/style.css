@@ -175,6 +175,38 @@ section { position: relative; }
 .event .badge.home { color:var(--ice); border-color:rgba(53,198,255,.4); }
 .event .badge.devils { color:var(--red); border-color:rgba(255,51,32,.4); }
 
+/* ---------- Page header (subpages) ---------- */
+.page-header { position:relative; padding:calc(var(--nav-h) + 70px) 0 60px; overflow:hidden; border-bottom:1px solid var(--line);
+  background:
+    radial-gradient(90% 120% at 85% 0%, rgba(53,198,255,.18), transparent 55%),
+    radial-gradient(70% 100% at 0% 100%, rgba(255,51,32,.12), transparent 55%),
+    linear-gradient(180deg, var(--bg-2), var(--bg)); }
+.page-header .eyebrow { font-family:var(--font-display); text-transform:uppercase; letter-spacing:3px; color:var(--ice); font-size:.9rem; display:block; margin-bottom:.6rem; }
+.page-header h1 { font-size:clamp(2.4rem,6vw,4.5rem); }
+.page-header p { color:var(--text-dim); margin-top:1rem; max-width:640px; font-size:1.08rem; }
+
+/* ---------- Rider profile cards ---------- */
+.rider-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.rider { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:26px; display:flex; flex-direction:column; gap:18px;
+  transition:transform .22s, border-color .22s, box-shadow .22s; }
+.rider:hover { transform:translateY(-4px); border-color:rgba(53,198,255,.45); box-shadow:var(--shadow); }
+.rider-top { display:flex; gap:18px; align-items:center; }
+.rider-photo { position:relative; width:86px; height:86px; flex:0 0 86px; border-radius:16px; display:grid; place-items:center;
+  font-family:var(--font-display); font-size:2rem; color:var(--ice); background:linear-gradient(160deg,var(--surface-2),var(--bg-3)); border:1px solid var(--line); }
+.rider-photo .flag { position:absolute; bottom:-8px; right:-8px; font-size:1.3rem; background:var(--bg-2); border:1px solid var(--line); border-radius:8px; padding:1px 4px; }
+.rider-id h3 { font-size:1.6rem; }
+.rider-role { color:var(--ice); font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px; font-size:.85rem; margin-top:.2rem; }
+.rider-meta { color:var(--text-mute); font-size:.85rem; margin-top:.35rem; }
+.rider-badges { display:flex; flex-wrap:wrap; gap:8px; }
+.rider-badge { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.5px; font-size:.78rem; padding:.35rem .75rem; border-radius:999px;
+  color:var(--gold); border:1px solid rgba(255,206,84,.35); background:rgba(255,206,84,.08); }
+.rider-ach { display:flex; flex-direction:column; gap:9px; }
+.rider-ach li { position:relative; padding-left:26px; color:var(--text-dim); font-size:.96rem; line-height:1.45; }
+.rider-ach li::before { content:"▪"; position:absolute; left:6px; top:0; color:var(--ice); }
+.rider-note { color:var(--text-mute); font-size:.85rem; font-style:italic; border-top:1px dashed var(--line); padding-top:12px; }
+
+@media (max-width:900px){ .rider-grid { grid-template-columns:1fr; } }
+
 /* ---------- Live player ---------- */
 .live-block { margin-bottom: 42px; }
 .live-head { display:flex; align-items:center; gap:14px; margin-bottom:14px; flex-wrap:wrap; }

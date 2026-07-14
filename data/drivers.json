@@ -1,0 +1,146 @@
+{
+  "_comment": "Fahrer & Erfolge Inn Isar Racing. Von Rainer freigegeben 2026-07. Quellen: SPEEDWEEK, DMV, Bahnsport Deutschland, Wikipedia, Wasserburger Stimme.",
+  "drivers": [
+    {
+      "id": "max-niedermaier",
+      "name": "Max Niedermaier",
+      "initials": "MN",
+      "flag": "🇩🇪",
+      "born": "1988",
+      "hometown": "Edling",
+      "discipline": "Eisspeedway",
+      "role": "Kapitän Team Deutschland",
+      "highlights": ["Eisspeedway-Vize-Weltmeister 2024", "Team-WM Bronze 2026"],
+      "achievements": [
+        "Eisspeedway-Vizeweltmeister 2024 (Heerenveen) – erst der dritte deutsche WM-Silberne der Eisspeedway-Geschichte",
+        "Bronze mit Team Deutschland bei der Eisspeedway-Team-WM 2026 – als Kapitän",
+        "Fester Teilnehmer der Eisspeedway-WM-Grand-Prix-Serie mit Podestplätzen u. a. in Inzell"
+      ]
+    },
+    {
+      "id": "celina-liebmann",
+      "name": "Celina Liebmann",
+      "initials": "CL",
+      "flag": "🇩🇪",
+      "born": "2001",
+      "hometown": "Wasserburg am Inn",
+      "discipline": "Speedway / Langbahn",
+      "role": "Aushängeschild & Pionierin",
+      "highlights": ["Speedway-Gold-Trophy-Weltmeisterin 2024", "Frauen-WM-Siegerin 2024"],
+      "achievements": [
+        "FIM Speedway Gold Trophy – Weltmeisterin 2024",
+        "Siegerin der Frauen-Speedway-WM 2024 in Teterow",
+        "250-cm³-Deutsche Meisterin 2016, Langbahn-Vize-Weltmeisterin 2017",
+        "Erste Frau in einem Speedway-U21-WM-Lauf (2022), erste Frau mit Vertrag bei einem britischen Team (2024) und erste Frau in der 1. Speedway-Bundesliga"
+      ],
+      "note": "Teammitglied im Heimatverein Inn Isar Racing; in der Bundesliga am Start für die Black Forest Eagles Berghaupten."
+    },
+    {
+      "id": "maximilian-niedermaier",
+      "name": "Maximilian Niedermaier",
+      "initials": "MN",
+      "flag": "🇩🇪",
+      "born": "2000",
+      "hometown": "Fraueneuharting / Ebersberg",
+      "discipline": "Eisspeedway",
+      "role": "DMV-Nationalfahrer",
+      "highlights": ["Team-WM Bronze 2026", "WM-Grand-Prix 2025"],
+      "achievements": [
+        "Bronze mit Team Deutschland bei der Eisspeedway-Team-WM 2026",
+        "2025 erstmals für die Eisspeedway-WM-Grand-Prix-Serie qualifiziert (Inzell & Heerenveen)",
+        "Cousin von Max Niedermaier – gemeinsam im DMV-Nationalteam"
+      ]
+    },
+    {
+      "id": "christoph-kirchner",
+      "name": "Christoph Kirchner",
+      "initials": "CK",
+      "flag": "🇩🇪",
+      "born": "",
+      "hometown": "Raum Wasserburg",
+      "discipline": "Eisspeedway",
+      "role": "DMV-Nationalfahrer",
+      "highlights": ["Team-WM Bronze 2026", "Bronze-Held Heerenveen"],
+      "achievements": [
+        "Bronze mit Team Deutschland bei der Eisspeedway-Team-WM 2026 – mit entscheidender Schlussfahrt in Heerenveen",
+        "Comeback nach über einem Jahrzehnt Pause, gezielte Vorbereitung in der Saison 2025/26"
+      ]
+    },
+    {
+      "id": "paul-cooper",
+      "name": "Paul Cooper",
+      "initials": "PC",
+      "flag": "🇬🇧",
+      "born": "1982",
+      "hometown": "York (England)",
+      "discipline": "Grasstrack / Longtrack / Eisspeedway",
+      "role": "Champion aus England",
+      "highlights": ["British Sand Ace Champion 2017 & 2019", "British Grasstrack Champion"],
+      "achievements": [
+        "Mehrfacher britischer Grasstrack-Champion",
+        "British Sand Ace Champion 2017 & 2019",
+        "Eisspeedway-Debüt 2024 in Heerenveen; seither Fahrer im Inn Isar Racing Team"
+      ]
+    },
+    {
+      "id": "philipp-lageder",
+      "name": "Philipp Lageder",
+      "initials": "PL",
+      "flag": "🇦🇹",
+      "born": "",
+      "hometown": "Österreich",
+      "discipline": "Eisspeedway",
+      "role": "Team-Fahrer",
+      "highlights": ["Schwedische Liga – Vize", "seit 2024 im Team"],
+      "achievements": [
+        "Österreichischer Eisspeedway-Fahrer im Inn Isar Racing Team",
+        "Wichtiger Fahrer beim 2. Platz in der schwedischen Eisspeedway-Liga"
+      ]
+    },
+    {
+      "id": "reinhard-greisel",
+      "name": "Reinhard Greisel",
+      "initials": "RG",
+      "flag": "🇩🇪",
+      "born": "",
+      "hometown": "",
+      "discipline": "Eisspeedway",
+      "role": "Routinier",
+      "highlights": ["Eisspeedway-WM-Teilnehmer 2025"],
+      "achievements": [
+        "Eisspeedway-Routinier mit Comeback nach mehrjähriger Pause",
+        "Teilnehmer der Eisspeedway-WM 2025 (u. a. Inzell)"
+      ]
+    },
+    {
+      "id": "simon-mayer",
+      "name": "Simon Mayer",
+      "initials": "SM",
+      "flag": "🇩🇪",
+      "born": "2004",
+      "hometown": "Hochstätt (Oberbayern)",
+      "discipline": "Eisspeedway",
+      "role": "Nachwuchstalent",
+      "highlights": ["Eis-Debüt 2026", "Deutsche Zukunftshoffnung"],
+      "achievements": [
+        "Junges deutsches Eisspeedway-Talent (21) aus Hochstätt",
+        "Eisspeedway-Debüt im Februar 2026 in Schweden (Allsvenskan, Östersund)"
+      ]
+    },
+    {
+      "id": "franz-mayerbuechler",
+      "name": "Franz Mayerbüchler",
+      "initials": "FM",
+      "flag": "🇩🇪",
+      "born": "",
+      "hometown": "Inzell",
+      "discipline": "Eisspeedway",
+      "role": "WM-Reservefahrer",
+      "highlights": ["WM-Reservefahrer 2026"],
+      "achievements": [
+        "DMV-Eisspeedway-Fahrer aus dem Eisspeedway-Mekka Inzell",
+        "Reservefahrer der Eisspeedway-WM 2026; im Einsatz bei der WM-Qualifikation in Örnsköldsvik"
+      ]
+    }
+  ]
+}
