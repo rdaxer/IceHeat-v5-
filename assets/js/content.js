@@ -64,6 +64,20 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
+  /* ---------- Sponsors ---------- */
+  function renderSponsors(data) {
+    const wrap = document.getElementById('sponsors-list');
+    const list = data && data.sponsors;
+    if (!wrap || !Array.isArray(list) || !list.length) return; // keep fallback
+    wrap.innerHTML = list.map(s => {
+      const inner = `<img src="${s.logo}" alt="${escape(s.name)}" loading="lazy">`;
+      return s.url
+        ? `<a class="sponsor" href="${s.url}" target="_blank" rel="noopener" title="${escape(s.name)}">${inner}</a>`
+        : `<div class="sponsor" title="${escape(s.name)}">${inner}</div>`;
+    }).join('');
+  }
+
   getJSON('data/events.json').then(d => renderEvents(d.events || d)).catch(() => {});
   getJSON('data/videos.json').then(renderVideos).catch(() => {});
+  getJSON('data/sponsors.json').then(renderSponsors).catch(() => {});
 })();

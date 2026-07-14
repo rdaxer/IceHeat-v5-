@@ -1,0 +1,7 @@
+{
+  "_comment": "Sponsoren/Partner. Logo-Dateien in assets/img/sponsors/. Weitere Logos einfach ergaenzen.",
+  "sponsors": [
+    { "name": "Kugelmann Maschinenbau", "logo": "assets/img/sponsors/kugelmann.webp", "url": "" },
+    { "name": "Gromann", "logo": "assets/img/sponsors/gromann.png", "url": "" }
+  ]
+}
