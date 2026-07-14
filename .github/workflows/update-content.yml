@@ -29,14 +29,19 @@ jobs:
         env:
           YT_CHANNEL_ID: UCIkUWT8IvWdasBUywWY22OA
 
+      - name: Sync race calendar (Google Calendar)
+        run: node scripts/fetch-calendar.mjs
+        env:
+          CAL_ID: c85316707e0d0ebbd69c12525428113663d38ccb078380cfe40a8559f0dedc9f@group.calendar.google.com
+
       - name: Commit changes if any
         run: |
-          if [[ -n "$(git status --porcelain data/videos.json)" ]]; then
+          if [[ -n "$(git status --porcelain data/)" ]]; then
             git config user.name  "innisar-bot"
             git config user.email "actions@github.com"
-            git add data/videos.json
-            git commit -m "chore: update YouTube feed [skip ci]"
+            git add data/
+            git commit -m "chore: update content (YouTube + Kalender) [skip ci]"
             git push
           else
-            echo "No changes in data/videos.json"
+            echo "No content changes"
           fi

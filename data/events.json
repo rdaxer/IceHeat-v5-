@@ -1,11 +1,13 @@
 {
-  "_comment": "Rennkalender Inn Isar Racing. Termine hier pflegen ODER kuenftig automatisch aus dem oeffentlichen Google-Kalender ziehen. Felder: date (YYYY-MM-DD), time, title, subtitle, location, team (team|devils), type (home|away|preview), status (confirmed|provisional).",
+  "_comment": "AUTO-GENERIERT aus dem oeffentlichen Google-Kalender 'Inn Isar Racing'. Nicht manuell editieren — Termine im Google-Kalender pflegen (auch am Handy). Aktualisiert sich 2x taeglich via GitHub Action.",
+  "calendarId": "c85316707e0d0ebbd69c12525428113663d38ccb078380cfe40a8559f0dedc9f@group.calendar.google.com",
+  "updated": "",
   "events": [
     {
       "date": "2026-08-02",
       "time": "14:00",
-      "title": "Inn Isar Devils – Heimrennen",
-      "subtitle": "2. Speedway-Bundesliga",
+      "title": "Inn Isar Devils – Heimrennen (2. Speedway-Bundesliga)",
+      "subtitle": "",
       "location": "OneSolar-Arena Landshut/Ellermühle",
       "team": "devils",
       "type": "home",
@@ -14,21 +16,11 @@
     {
       "date": "2026-09-25",
       "time": "",
-      "title": "Inn Isar Devils – Bundesliga-Finale",
-      "subtitle": "2. Speedway-Bundesliga",
+      "title": "Inn Isar Devils – Bundesliga-Finale (2. Speedway-Bundesliga)",
+      "subtitle": "",
       "location": "Landshut",
       "team": "devils",
       "type": "home",
-      "status": "provisional"
-    },
-    {
-      "date": "2026-12-01",
-      "time": "",
-      "title": "Eisspeedway-Saison 2026/27",
-      "subtitle": "Inn Isar Racing Team · Termine folgen",
-      "location": "Deutschland / Schweden",
-      "team": "team",
-      "type": "preview",
       "status": "provisional"
     }
   ]
