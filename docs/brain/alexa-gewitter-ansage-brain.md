@@ -89,13 +89,20 @@ Legacy-Muster `action: notify.<entity>` ist **ungültig** → muss `notify.send_
     message: "Achtung Gewitterwarnung …"
 ```
 
-### Fallback-Kanäle — EINGEBAUT am 2026-07-15 ✅
+### Fallback-Kanäle — EINGEBAUT am 2026-07-15 ✅ (finalisiert)
 In beide Gewitter-Automationen (`…60_minuten_vorwarnung`, `…30_minuten_wiederholung`):
 - Alexa-Ansagen mit `continue_on_error: true` (totes Echo bricht die Automation nicht mehr ab)
-- Neuer Fallback-Block danach: Push auf `notify.motorola_edge_60`, `notify.xiaomi`,
-  `notify.nothing` (Nothing Phone) + persistente Notification (`notification_id: gewitter_warnung`)
-- Warntext identisch zur Alexa-Ansage
-- Hinweis: Nutzer hatte Fallback am 2026-07-05 zunächst abgelehnt, am 2026-07-15 dann doch gewünscht.
+- Fallback-Block (`actions[2]`, parallel):
+  - `notify.mobile_app_motorola_edge_60` (Edge 60)
+  - `notify.mobile_app_a059p` (Nothing Phone — Modell A059P)
+  - `persistent_notification.create` (`notification_id: gewitter_warnung`)
+- **Ton/Klingeln:** Legacy-mobile_app-Dienste mit `data: {ttl: 0, priority: high,
+  channel: alarm_stream, tag: gewitter_warnung}` → klingelt auf Alarm-Lautstärke, umgeht „Nicht stören".
+- Warntext identisch zur Alexa-Ansage.
+- **Nur 2 Handys** (Xiaomi `notify.xiaomi` / `notify.mobile_app_2112123ag` entfernt — existiert nicht mehr).
+- ⚠️ Ton geht NUR über die Legacy-Dienste `notify.mobile_app_*` (mit verschachteltem `data.data`),
+  NICHT über `notify.send_message` (das unterstützt keine app-spezifischen `data`).
+- Hinweis: Nutzer hatte Fallback am 2026-07-05 zunächst abgelehnt, am 2026-07-15 dann gewünscht.
 
 ## Diagnose-Kochrezept (wie prüfen)
 1. `ha_get_integration(query="alexa")` → Status prüfen (`loaded` = gut, `setup_retry` = kaputt).
