@@ -89,11 +89,13 @@ Legacy-Muster `action: notify.<entity>` ist **ungültig** → muss `notify.send_
     message: "Achtung Gewitterwarnung …"
 ```
 
-### Funktionierende Alternativkanäle (für Fallback)
-- `notify.motorola_edge_60` (Handy-Push, erreichbar)
-- `notify.xiaomi` (Handy-Push, erreichbar)
-- Persistente Notification (immer verfügbar)
-- Hinweis: Nutzer hat Fallback am 2026-07-05 zunächst **abgelehnt** („nur Alexa lassen").
+### Fallback-Kanäle — EINGEBAUT am 2026-07-15 ✅
+In beide Gewitter-Automationen (`…60_minuten_vorwarnung`, `…30_minuten_wiederholung`):
+- Alexa-Ansagen mit `continue_on_error: true` (totes Echo bricht die Automation nicht mehr ab)
+- Neuer Fallback-Block danach: Push auf `notify.motorola_edge_60`, `notify.xiaomi`,
+  `notify.nothing` (Nothing Phone) + persistente Notification (`notification_id: gewitter_warnung`)
+- Warntext identisch zur Alexa-Ansage
+- Hinweis: Nutzer hatte Fallback am 2026-07-05 zunächst abgelehnt, am 2026-07-15 dann doch gewünscht.
 
 ## Diagnose-Kochrezept (wie prüfen)
 1. `ha_get_integration(query="alexa")` → Status prüfen (`loaded` = gut, `setup_retry` = kaputt).
@@ -112,5 +114,5 @@ Legacy-Muster `action: notify.<entity>` ist **ungültig** → muss `notify.send_
 ## Offene nächste Schritte
 - [ ] Amazon-Konto: Ghost-/Doppel-Geräte deregistrieren, dann 1× Reload testen
 - [ ] aioamazondevices #625/#949 beobachten; bei Fix → HA-Patch einspielen
-- [ ] Optional Fallback (Handy-Push/Notification) in Gewitter-Automationen ergänzen
+- [x] Fallback (Handy-Push/Notification) in Gewitter-Automationen ergänzt (2026-07-15)
 - [ ] Restliche Automationen auf Legacy-`notify.<entity>` prüfen
