@@ -1,0 +1,632 @@
+<style>
+/* =====================================================================
+   INN ISAR RACING – Design System
+   Dark Ice-Speedway theme · ice-blue + racing-red accents
+   ===================================================================== */
+
+:root {
+  /* Palette */
+  --bg:        #070a0f;
+  --bg-2:      #0c1119;
+  --bg-3:      #121a26;
+  --surface:   #131b28;
+  --surface-2: #1a2536;
+  --line:      #223146;
+  --text:      #eef4fb;
+  --text-dim:  #9fb1c6;
+  --text-mute: #64748b;
+
+  --ice:       #35c6ff;   /* ice blue */
+  --ice-deep:  #0a84c7;
+  --red:       #ff3320;   /* racing / devils red */
+  --red-deep:  #c81400;
+  --gold:      #ffce54;
+
+  /* Type */
+  --font-display: "Barlow Condensed", "Oswald", "Arial Narrow", sans-serif;
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  /* Metrics */
+  --container: 1200px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --shadow: 0 18px 50px rgba(0,0,0,.55);
+  --shadow-glow: 0 0 40px rgba(53,198,255,.25);
+  --nav-h: 74px;
+}
+
+/* ---------- Reset / base ---------- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+ul { list-style: none; }
+
+h1,h2,h3,h4 { font-family: var(--font-display); font-weight: 700; line-height: 1.02; letter-spacing: .5px; text-transform: uppercase; }
+
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: 22px; }
+
+.accent-ice { color: var(--ice); }
+.accent-red { color: var(--red); }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: .55rem;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem;
+  text-transform: uppercase; letter-spacing: 1px;
+  padding: .85rem 1.6rem; border-radius: 999px;
+  border: 2px solid transparent; cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn-primary { background: linear-gradient(120deg, var(--ice), var(--ice-deep)); color: #04121c; box-shadow: var(--shadow-glow); }
+.btn-primary:hover { box-shadow: 0 0 55px rgba(53,198,255,.45); }
+.btn-red { background: linear-gradient(120deg, var(--red), var(--red-deep)); color: #fff; box-shadow: 0 0 40px rgba(255,51,32,.28); }
+.btn-ghost { border-color: var(--line); color: var(--text); background: rgba(255,255,255,.02); }
+.btn-ghost:hover { border-color: var(--ice); color: var(--ice); }
+
+/* ---------- Navigation ---------- */
+.nav {
+  position: fixed; inset: 0 0 auto 0; height: var(--nav-h); z-index: 100;
+  display: flex; align-items: center;
+  background: rgba(7,10,15,.55); backdrop-filter: blur(14px);
+  border-bottom: 1px solid transparent; transition: background .3s, border-color .3s;
+}
+.nav.scrolled { background: rgba(7,10,15,.92); border-bottom-color: var(--line); }
+.nav .container { display: flex; align-items: center; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: .7rem; font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: 1px; text-transform: uppercase; }
+.brand .mark { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg,var(--ice),var(--ice-deep)); display: grid; place-items: center; color:#04121c; font-weight:800; box-shadow: var(--shadow-glow); }
+.brand .mark.red { background: linear-gradient(135deg,var(--red),var(--red-deep)); color:#fff; }
+.nav-links { display: flex; align-items: center; gap: 1.4rem; }
+.nav-links a { font-family: var(--font-display); font-size: 1.05rem; letter-spacing: .5px; text-transform: uppercase; color: var(--text-dim); transition: color .18s; position: relative; }
+.nav-links a:hover, .nav-links a.active { color: var(--text); }
+.nav-links a.active::after { content:""; position:absolute; left:0; right:0; bottom:-6px; height:2px; background: var(--ice); }
+.nav-cta { display:flex; gap:.6rem; align-items:center; }
+.burger { display:none; flex-direction:column; gap:5px; background:none; border:0; cursor:pointer; padding:8px; }
+.burger span { width:26px; height:2px; background:var(--text); transition:.25s; }
+
+/* ---------- Hero ---------- */
+.hero { position: relative; min-height: 100vh; display: flex; align-items: center; overflow: hidden; }
+#hero-canvas { position:absolute; inset:0; width:100%; height:100%; z-index:0; }
+.hero-overlay { position:absolute; inset:0; z-index:1;
+  background:
+    radial-gradient(120% 90% at 80% 10%, rgba(53,198,255,.16), transparent 55%),
+    radial-gradient(90% 80% at 10% 90%, rgba(255,51,32,.12), transparent 50%),
+    linear-gradient(180deg, rgba(7,10,15,.35) 0%, rgba(7,10,15,.65) 60%, var(--bg) 100%);
+}
+.hero .container { position: relative; z-index: 2; padding-top: var(--nav-h); }
+.hero-badge { display:inline-flex; align-items:center; gap:.5rem; font-family:var(--font-display); text-transform:uppercase; letter-spacing:2px; font-size:.85rem;
+  color:var(--ice); border:1px solid rgba(53,198,255,.4); background:rgba(53,198,255,.08); padding:.4rem 1rem; border-radius:999px; margin-bottom:1.4rem; }
+.hero-badge .dot { width:8px; height:8px; border-radius:50%; background:var(--ice); box-shadow:0 0 12px var(--ice); animation:pulse 1.6s infinite; }
+@keyframes pulse { 0%,100%{opacity:1; transform:scale(1);} 50%{opacity:.4; transform:scale(.7);} }
+.hero h1 { font-size: clamp(3rem, 9vw, 7.5rem); letter-spacing: 1px; }
+.hero h1 .line2 { color: transparent; -webkit-text-stroke: 2px var(--ice); text-stroke: 2px var(--ice); }
+.hero p.lead { max-width: 640px; margin: 1.4rem 0 2.2rem; font-size: clamp(1.05rem,2vw,1.3rem); color: var(--text-dim); }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .9rem; }
+.hero-scroll { position:absolute; bottom:26px; left:50%; transform:translateX(-50%); z-index:2; color:var(--text-mute); font-family:var(--font-display); letter-spacing:2px; font-size:.75rem; text-transform:uppercase; display:flex; flex-direction:column; align-items:center; gap:.4rem; }
+.hero-scroll .arrow { width:1px; height:34px; background:linear-gradient(var(--ice),transparent); animation:drop 1.8s infinite; }
+@keyframes drop { 0%{opacity:0; transform:translateY(-8px);} 40%{opacity:1;} 100%{opacity:0; transform:translateY(10px);} }
+
+/* ---------- Sections ---------- */
+section { position: relative; }
+.section { padding: 92px 0; }
+.section-head { max-width: 720px; margin-bottom: 48px; }
+.section-head .eyebrow { font-family:var(--font-display); text-transform:uppercase; letter-spacing:3px; color:var(--ice); font-size:.9rem; margin-bottom:.6rem; display:block; }
+.section-head h2 { font-size: clamp(2rem,5vw,3.4rem); }
+.section-head p { color: var(--text-dim); margin-top: 1rem; font-size: 1.08rem; }
+.bg-alt { background: linear-gradient(180deg, var(--bg), var(--bg-2)); }
+
+/* ---------- Team cards ---------- */
+.teams-grid { display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+.team-card { position:relative; border-radius:var(--radius-lg); overflow:hidden; min-height:340px; display:flex; flex-direction:column; justify-content:flex-end;
+  padding:34px; border:1px solid var(--line); background:var(--surface); isolation:isolate; transition: transform .25s, box-shadow .25s; }
+.team-card:hover { transform: translateY(-6px); box-shadow: var(--shadow); }
+.team-card::before { content:""; position:absolute; inset:0; z-index:-1; opacity:.9;
+  background: radial-gradient(120% 120% at 100% 0%, rgba(53,198,255,.22), transparent 55%), linear-gradient(180deg, rgba(19,27,40,.2), rgba(7,10,15,.9)); }
+.team-card.devils::before { background: radial-gradient(120% 120% at 100% 0%, rgba(255,51,32,.28), transparent 55%), linear-gradient(180deg, rgba(19,27,40,.2), rgba(7,10,15,.92)); }
+.team-card .tag { font-family:var(--font-display); text-transform:uppercase; letter-spacing:2px; font-size:.8rem; color:var(--ice); margin-bottom:.5rem; }
+.team-card.devils .tag { color: var(--red); }
+.team-card h3 { font-size: 2.2rem; }
+.team-card p { color: var(--text-dim); margin:.8rem 0 1.3rem; }
+.team-card .arrow-link { font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px; color:var(--text); display:inline-flex; gap:.5rem; align-items:center; }
+.team-card .arrow-link:hover { color: var(--ice); }
+
+/* ---------- Stats strip ---------- */
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+.stat { text-align:center; padding:26px 14px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); }
+.stat .num { font-family:var(--font-display); font-size:2.8rem; color:var(--ice); line-height:1; }
+.stat .lbl { color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; font-size:.8rem; margin-top:.5rem; }
+
+/* ---------- Cards grid (drivers / videos) ---------- */
+.grid { display:grid; gap:22px; }
+.grid.cols-3 { grid-template-columns:repeat(3,1fr); }
+.grid.cols-4 { grid-template-columns:repeat(4,1fr); }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; transition:transform .22s, border-color .22s, box-shadow .22s; }
+.card:hover { transform:translateY(-5px); border-color:rgba(53,198,255,.5); box-shadow:var(--shadow); }
+.card .thumb { aspect-ratio: 16/10; background:linear-gradient(135deg,var(--bg-3),var(--surface-2)); position:relative; display:grid; place-items:center; color:var(--text-mute); }
+.card .thumb.play::after { content:"▶"; position:absolute; inset:0; display:grid; place-items:center; font-size:2.4rem; color:rgba(255,255,255,.85); }
+.card .body { padding:18px; }
+.card .body h4 { font-size:1.25rem; letter-spacing:.5px; }
+.card .body .meta { color:var(--text-mute); font-size:.85rem; margin-top:.4rem; text-transform:uppercase; letter-spacing:1px; }
+
+/* driver card */
+.driver { text-align:center; }
+.driver .photo { aspect-ratio:1; background:linear-gradient(160deg,var(--surface-2),var(--bg-3)); display:grid; place-items:center; font-family:var(--font-display); font-size:3rem; color:var(--ice); }
+.driver .body h4 { font-size:1.35rem; }
+.driver .body .role { color:var(--text-dim); font-size:.85rem; text-transform:uppercase; letter-spacing:1px; margin-top:.3rem; }
+
+/* ---------- Calendar / events ---------- */
+.events { display:flex; flex-direction:column; gap:14px; }
+.event { display:grid; grid-template-columns:96px 1fr auto; gap:22px; align-items:center; padding:20px 24px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); transition:border-color .2s; }
+.event:hover { border-color:rgba(53,198,255,.45); }
+.event .date { text-align:center; }
+.event .date .d { font-family:var(--font-display); font-size:2rem; color:var(--ice); line-height:1; }
+.event .date .m { text-transform:uppercase; letter-spacing:1px; font-size:.75rem; color:var(--text-dim); }
+.event .info h4 { font-size:1.25rem; }
+.event .info .sub { color:var(--text-dim); font-size:.9rem; margin-top:.2rem; }
+.event .badge { font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px; font-size:.75rem; padding:.35rem .8rem; border-radius:999px; border:1px solid var(--line); color:var(--text-dim); }
+.event .badge.home { color:var(--ice); border-color:rgba(53,198,255,.4); }
+.event .badge.devils { color:var(--red); border-color:rgba(255,51,32,.4); }
+
+/* ---------- Page header (subpages) ---------- */
+.page-header { position:relative; padding:calc(var(--nav-h) + 70px) 0 60px; overflow:hidden; border-bottom:1px solid var(--line);
+  background:
+    radial-gradient(90% 120% at 85% 0%, rgba(53,198,255,.18), transparent 55%),
+    radial-gradient(70% 100% at 0% 100%, rgba(255,51,32,.12), transparent 55%),
+    linear-gradient(180deg, var(--bg-2), var(--bg)); }
+.page-header .eyebrow { font-family:var(--font-display); text-transform:uppercase; letter-spacing:3px; color:var(--ice); font-size:.9rem; display:block; margin-bottom:.6rem; }
+.page-header h1 { font-size:clamp(2.4rem,6vw,4.5rem); }
+.page-header p { color:var(--text-dim); margin-top:1rem; max-width:640px; font-size:1.08rem; }
+
+/* ---------- Rider profile cards ---------- */
+.rider-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.rider { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:26px; display:flex; flex-direction:column; gap:18px;
+  transition:transform .22s, border-color .22s, box-shadow .22s; }
+.rider:hover { transform:translateY(-4px); border-color:rgba(53,198,255,.45); box-shadow:var(--shadow); }
+.rider-top { display:flex; gap:18px; align-items:center; }
+.rider-photo { position:relative; width:86px; height:86px; flex:0 0 86px; border-radius:16px; display:grid; place-items:center;
+  font-family:var(--font-display); font-size:2rem; color:var(--ice); background:linear-gradient(160deg,var(--surface-2),var(--bg-3)); border:1px solid var(--line); }
+.rider-photo .flag { position:absolute; bottom:-8px; right:-8px; font-size:1.3rem; background:var(--bg-2); border:1px solid var(--line); border-radius:8px; padding:1px 4px; }
+.rider-id h3 { font-size:1.6rem; }
+.rider-role { color:var(--ice); font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px; font-size:.85rem; margin-top:.2rem; }
+.rider-meta { color:var(--text-mute); font-size:.85rem; margin-top:.35rem; }
+.rider-badges { display:flex; flex-wrap:wrap; gap:8px; }
+.rider-badge { font-family:var(--font-display); text-transform:uppercase; letter-spacing:.5px; font-size:.78rem; padding:.35rem .75rem; border-radius:999px;
+  color:var(--gold); border:1px solid rgba(255,206,84,.35); background:rgba(255,206,84,.08); }
+.rider-ach { display:flex; flex-direction:column; gap:9px; }
+.rider-ach li { position:relative; padding-left:26px; color:var(--text-dim); font-size:.96rem; line-height:1.45; }
+.rider-ach li::before { content:"▪"; position:absolute; left:6px; top:0; color:var(--ice); }
+.rider-note { color:var(--text-mute); font-size:.85rem; font-style:italic; border-top:1px dashed var(--line); padding-top:12px; }
+
+@media (max-width:900px){ .rider-grid { grid-template-columns:1fr; } }
+
+/* ---------- Live player ---------- */
+.live-block { margin-bottom: 42px; }
+.live-head { display:flex; align-items:center; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
+.live-tag { display:inline-flex; align-items:center; gap:.5rem; font-family:var(--font-display); text-transform:uppercase; letter-spacing:2px; font-size:.85rem;
+  color:var(--red); border:1px solid rgba(255,51,32,.45); background:rgba(255,51,32,.08); padding:.35rem .9rem; border-radius:999px; }
+.live-dot { width:9px; height:9px; border-radius:50%; background:var(--red); box-shadow:0 0 12px var(--red); animation:pulse 1.4s infinite; }
+.live-note { color:var(--text-mute); font-size:.9rem; }
+.live-frame { position:relative; width:100%; aspect-ratio:16/9; border-radius:var(--radius-lg); overflow:hidden; border:1px solid var(--line);
+  background:#000; box-shadow:var(--shadow); }
+.live-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+
+/* ---------- Social CTA ---------- */
+.social-cta { text-align:center; }
+.social-links { display:flex; justify-content:center; flex-wrap:wrap; gap:16px; margin-top:26px; }
+.social-links a { display:inline-flex; align-items:center; gap:.6rem; padding:.9rem 1.5rem; border-radius:999px; border:1px solid var(--line); background:var(--surface); font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px; transition:transform .18s, border-color .18s, color .18s; }
+.social-links a:hover { transform:translateY(-3px); }
+.social-links a.yt:hover { color:#ff0033; border-color:#ff0033; }
+.social-links a.ig:hover { color:#e1306c; border-color:#e1306c; }
+.social-links a.fb:hover { color:#1877f2; border-color:#1877f2; }
+
+/* ---------- Sponsors ---------- */
+.sponsors { display:flex; flex-wrap:wrap; justify-content:center; gap:18px; }
+.sponsor { min-width:150px; width:170px; height:90px; display:grid; place-items:center; border:1px solid var(--line); border-radius:var(--radius); background:#fff; color:var(--text-mute); font-family:var(--font-display); letter-spacing:1px; text-transform:uppercase; padding:14px; transition:transform .18s; overflow:hidden; }
+.sponsor:hover { transform:translateY(-3px); }
+.sponsor img { max-width:100%; max-height:100%; object-fit:contain; }
+
+/* ---------- Footer ---------- */
+.footer { background:var(--bg-2); border-top:1px solid var(--line); padding:60px 0 30px; }
+.footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr; gap:40px; margin-bottom:40px; }
+.footer h5 { font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px; margin-bottom:1rem; color:var(--text); }
+.footer a { color:var(--text-dim); display:block; padding:.25rem 0; transition:color .18s; }
+.footer a:hover { color:var(--ice); }
+.footer .muted { color:var(--text-mute); font-size:.9rem; }
+.footer-bottom { border-top:1px solid var(--line); padding-top:24px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; color:var(--text-mute); font-size:.85rem; }
+
+/* ---------- Reveal animation ---------- */
+.reveal { opacity:0; transform:translateY(28px); transition:opacity .7s ease, transform .7s ease; }
+.reveal.in { opacity:1; transform:none; }
+
+/* ---------- Notice banner ---------- */
+.notice { background:rgba(255,206,84,.1); border:1px solid rgba(255,206,84,.35); color:var(--gold); border-radius:var(--radius); padding:14px 18px; font-size:.9rem; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .teams-grid, .footer-grid { grid-template-columns:1fr; }
+  .grid.cols-3, .grid.cols-4 { grid-template-columns:repeat(2,1fr); }
+  .stats { grid-template-columns:repeat(2,1fr); }
+  .nav-links, .nav-cta .btn-ghost { display:none; }
+  .nav.open .nav-links { display:flex; position:absolute; top:var(--nav-h); left:0; right:0; flex-direction:column; background:rgba(7,10,15,.98); padding:20px 22px; gap:1rem; border-bottom:1px solid var(--line); }
+  .burger { display:flex; }
+}
+@media (max-width: 560px) {
+  .grid.cols-3, .grid.cols-4 { grid-template-columns:1fr; }
+  .event { grid-template-columns:70px 1fr; }
+  .event .badge { display:none; }
+  .section { padding:64px 0; }
+}
+
+</style>
+
+
+  <!-- ===== Navigation ===== -->
+  <header class="nav">
+    <div class="container">
+      <a class="brand" href="index.html">
+        <span class="mark">II</span> Inn&nbsp;Isar&nbsp;Racing
+      </a>
+      <nav class="nav-links">
+        <a href="index.html" class="active">Start</a>
+        <a href="#teams">Teams</a>
+        <a href="#fahrer">Fahrer</a>
+        <a href="#videos">Videos</a>
+        <a href="#termine">Kalender</a>
+        <a href="#kontakt">Kontakt</a>
+      </nav>
+      <div class="nav-cta">
+        <a href="#videos" class="btn btn-ghost">Live &amp; Videos</a>
+        <button class="burger" aria-label="Menü"><span></span><span></span><span></span></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <canvas id="hero-canvas"></canvas>
+    <div class="hero-overlay"></div>
+    <div class="container">
+      <span class="hero-badge" title="Vorschau"><span class="dot"></span> Eisspeedway · Speedway · Bahnsport</span>
+      <h1>Inn Isar<br><span class="line2">Racing</span></h1>
+      <p class="lead">
+        Vollgas auf Eis und Asche. Wir sind die Rennsport-Vereinigung hinter dem
+        <strong>Inn Isar Racing Team</strong> und den <strong>Inn Isar Devils</strong> in der
+        2.&nbsp;Speedway-Bundesliga – mit Herz, Spikes und jeder Menge Adrenalin.
+      </p>
+      <div class="hero-actions">
+        <a href="#videos" class="btn btn-primary">▶ Videos &amp; Live</a>
+        <a href="#termine" class="btn btn-red">Nächste Rennen</a>
+        <a href="#teams" class="btn btn-ghost">Über uns</a>
+      </div>
+    </div>
+    <div class="hero-scroll"><span>Scroll</span><span class="arrow"></span></div>
+  </section>
+
+  <!-- ===== Teams ===== -->
+  <section class="section" id="teams">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Unsere Teams</span>
+        <h2>Zwei Teams, eine Leidenschaft</h2>
+        <p>Vom internationalen Eisspeedway bis zur 2.&nbsp;Speedway-Bundesliga – das ist Inn Isar Racing.</p>
+      </div>
+      <div class="teams-grid">
+        <article class="team-card reveal">
+          <span class="tag">Eis- &amp; Sommer-Speedway</span>
+          <h3>Inn Isar Racing Team</h3>
+          <p>Unser Renn­team im DMV – aktiv im Eisspeedway, im schwedischen Supercup und im Sommer-Speedway. Betreut von Teammanager Christian Platzer.</p>
+          <a class="arrow-link" href="#fahrer">Fahrer &amp; Erfolge →</a>
+        </article>
+        <article class="team-card devils reveal">
+          <span class="tag">2. Speedway-Bundesliga</span>
+          <h3>Inn Isar Devils</h3>
+          <p>Die Kooperation mit dem AC Landshut bis 2028. Heim­rennen in der OneSolar-Arena Landshut/Ellermühle – neue Speedway-Ära im Bayern.</p>
+          <a class="arrow-link" href="#termine">Rennkalender →</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Stats ===== -->
+  <section class="section bg-alt">
+    <div class="container">
+      <div class="stats reveal">
+        <div class="stat"><div class="num">2</div><div class="lbl">Teams</div></div>
+        <div class="stat"><div class="num">3</div><div class="lbl">Serien</div></div>
+        <div class="stat"><div class="num">6+</div><div class="lbl">Fahrer</div></div>
+        <div class="stat"><div class="num">'28</div><div class="lbl">Kooperation Landshut</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Nächste Termine ===== -->
+  <section class="section" id="termine">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Rennkalender</span>
+        <h2>Nächste Rennen</h2>
+        <p>Alle Termine, an denen das Inn Isar Racing Team oder die Inn Isar Devils antreten. <em>Wird künftig automatisch aus dem Vereins-Kalender aktualisiert.</em></p>
+      </div>
+      <div class="events reveal" id="events-list">
+        <div class="event">
+          <div class="date"><div class="d">02</div><div class="m">Aug 2026</div></div>
+          <div class="info"><h4>Inn Isar Devils – Heimrennen</h4><div class="sub">2. Speedway-Bundesliga · OneSolar-Arena Landshut · 14:00</div></div>
+          <span class="badge home devils">Heim</span>
+        </div>
+        <div class="event">
+          <div class="date"><div class="d">25</div><div class="m">Sep 2026</div></div>
+          <div class="info"><h4>Inn Isar Devils – Bundesliga-Finale</h4><div class="sub">2. Speedway-Bundesliga · Landshut</div></div>
+          <span class="badge devils">Finale</span>
+        </div>
+        <div class="event">
+          <div class="date"><div class="d">TBA</div><div class="m">Winter</div></div>
+          <div class="info"><h4>Eisspeedway-Saison 2026/27</h4><div class="sub">Inn Isar Racing Team · Termine folgen</div></div>
+          <span class="badge">Vorschau</span>
+        </div>
+      </div>
+      <div style="margin-top:22px" class="notice reveal">Hinweis: Termine sind vorläufig und werden nach eurer Bestätigung sowie über den automatischen Kalender aktualisiert.</div>
+    </div>
+  </section>
+
+  <!-- ===== Videos ===== -->
+  <section class="section bg-alt" id="videos">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Videos &amp; Live</span>
+        <h2>Renn-Action im Bewegtbild</h2>
+        <p>Die neuesten Clips von unserem YouTube-Kanal – künftig <strong>tagesaktuell &amp; automatisch</strong>. Live-Übertragungen (via Restream → YouTube) erscheinen direkt hier.</p>
+      </div>
+
+      <div class="live-block reveal">
+        <div class="live-head">
+          <span class="live-tag"><span class="live-dot"></span> Live</span>
+          <span class="live-note">Der Player zeigt automatisch die laufende Übertragung – außerhalb von Rennen bleibt er ruhig.</span>
+        </div>
+        <div class="live-frame" style="display:grid;place-items:center;text-align:center;padding:24px;">
+     <div style="color:var(--text-dim)"><div style="font-size:2.4rem;color:var(--red)">▶</div>
+     <strong style="font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase">Live-Player</strong><br>
+     <span style="font-size:.9rem">Erscheint automatisch während einer Übertragung (Restream → YouTube).<br>In der Vorschau deaktiviert.</span></div>
+   </div>
+      </div>
+
+      <div class="grid cols-3 reveal" id="video-grid">
+        <a class="card" href="https://youtube.com/@innisarracingteam1753" target="_blank" rel="noopener">
+          <div class="thumb play"></div>
+          <div class="body"><h4>Eisspeedway Highlights</h4><div class="meta">YouTube · Inn Isar Racing</div></div>
+        </a>
+        <a class="card" href="https://youtube.com/@innisarracingteam1753" target="_blank" rel="noopener">
+          <div class="thumb play"></div>
+          <div class="body"><h4>Behind the Scenes</h4><div class="meta">YouTube · Inn Isar Racing</div></div>
+        </a>
+        <a class="card" href="https://youtube.com/@innisarracingteam1753" target="_blank" rel="noopener">
+          <div class="thumb play"></div>
+          <div class="body"><h4>Bundesliga Devils</h4><div class="meta">YouTube · Inn Isar Racing</div></div>
+        </a>
+      </div>
+      <div style="text-align:center; margin-top:34px" class="reveal">
+        <a class="btn btn-primary" href="https://youtube.com/@innisarracingteam1753" target="_blank" rel="noopener">Alle Videos auf YouTube ansehen</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Fahrer ===== -->
+  <section class="section" id="fahrer">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">Fahrer &amp; Erfolge</span>
+        <h2>Unsere Fahrer</h2>
+        <p>Weltmeister-Silber im Eisspeedway, Team-WM-Bronze und eine Speedway-Pionierin – das sind die Piloten hinter Inn Isar Racing.</p>
+      </div>
+      <div class="grid cols-4 reveal">
+        <a class="card driver" href="#fahrer"><div class="photo">MN</div><div class="body"><h4>Max Niedermaier</h4><div class="role">Vize-Weltmeister 2024</div></div></a>
+        <a class="card driver" href="#fahrer"><div class="photo">CL</div><div class="body"><h4>Celina Liebmann</h4><div class="role">Weltmeisterin 2024</div></div></a>
+        <a class="card driver" href="#fahrer"><div class="photo">MN</div><div class="body"><h4>Maximilian Niedermaier</h4><div class="role">Team-WM Bronze 2026</div></div></a>
+        <a class="card driver" href="#fahrer"><div class="photo">CK</div><div class="body"><h4>Christoph Kirchner</h4><div class="role">Team-WM Bronze 2026</div></div></a>
+        <a class="card driver" href="#fahrer"><div class="photo">PC</div><div class="body"><h4>Paul Cooper</h4><div class="role">British Sand Ace Champ</div></div></a>
+        <a class="card driver" href="#fahrer"><div class="photo">PL</div><div class="body"><h4>Philipp Lageder</h4><div class="role">🇦🇹 Eisspeedway</div></div></a>
+        <a class="card driver" href="#fahrer"><div class="photo">RG</div><div class="body"><h4>Reinhard Greisel</h4><div class="role">Routinier · WM 2025</div></div></a>
+        <a class="card driver" href="#fahrer"><div class="photo">SM</div><div class="body"><h4>Simon Mayer</h4><div class="role">Nachwuchstalent</div></div></a>
+      </div>
+      <div style="text-align:center; margin-top:32px" class="reveal">
+        <a class="btn btn-primary" href="#fahrer">Alle Fahrer &amp; Erfolge ansehen</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Social CTA ===== -->
+  <section class="section bg-alt">
+    <div class="container social-cta reveal">
+      <div class="section-head" style="margin:0 auto 10px;">
+        <span class="eyebrow" style="display:block; text-align:center;">Bleib dran</span>
+        <h2 style="text-align:center;">Folge uns für alle News</h2>
+      </div>
+      <div class="social-links">
+        <a class="yt" href="https://youtube.com/@innisarracingteam1753" target="_blank" rel="noopener">▶ YouTube</a>
+        <a class="ig" href="https://www.instagram.com/innisarracingteam" target="_blank" rel="noopener">◎ Instagram</a>
+        <a class="fb" href="https://www.facebook.com/onspikes" target="_blank" rel="noopener">f Facebook</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Sponsoren ===== -->
+  <section class="section" id="sponsoren">
+    <div class="container">
+      <div class="section-head reveal" style="text-align:center; margin-inline:auto;">
+        <span class="eyebrow">Partner &amp; Sponsoren</span>
+        <h2>Danke an unsere Unterstützer</h2>
+      </div>
+      <div class="sponsors reveal" id="sponsors-list">
+        <div class="sponsor" title="Kugelmann Maschinenbau"><img src="data:image/webp;base64,UklGRngFAABXRUJQVlA4TGsFAAAvK4EXAIXXatuzbNu2bRWrisSnBCqgCCwtYOkAj8VvHk0DeDQSi49cx1gWkRA42NmvY7v+I/o/AfJNrf/vv//771//yqbUL4n32lsovyNu2esFoVD9gmhrFgKPdhrfRLu4ejffxeUvI24ygIAd/kWckWT/bg1Jovt1qkBGa/n98IsBIKxx8v1wG2HR6r8g0k3dYSGY9V8QVS0C5npbii+IiJSHdVJ4eTNNi7hYc9Q55zRH1Z1rhrps1Vv09hx1+apZmn1Bs8/ElYWovFl1hLgVH8zM+gy3mZlNCdVqWI5g52GpE/USLDtsg7+i7Rru3qbWnzSWH/ap0lQ1HyHzWIZKT6ol5O7LUKlGT/4ZWh4GwHpRH0AiayeJlJ8MMIBpg4VKRKpgAM8BwPbqQmeGm83MjlZTYC4AC4NG5YFsM7PJJ6oAQ6YZwsf/AlpuIGmDiiR4k1+N4EV8RGQCb1xcltv5RxFavSGGdSoiA8DLaxF9wMtYivfzq4GwjxPRBO5xE0ACQAIgyU1E1ghIAYiszioCSQBIABFAAiBJhPIaABA4vIjOAAGAJGKSNkZrBESISVj/esUCkpiciEiC99QGknaMbRO3B042kjy6Jt1tIGGj5ngjaWvbJHsDiaFpmnZYjfEY+Sa3HQNIWiuiC0mErom7KSSCF5EtOrom7qZgIHn4l3MTQNhciIhoArfoBBA2e1EVEdGZebOcamUgMV9DJ+kKUS2xGxHt0UVtLPqcrRKraHUABJqzRUVEVbUOkdXv5kYjaUshyQRvcQdJHF7Or0xn4g6QXN0ltmdkhhQ7SAZ/TYqdJKYrIqKdgeRwIdkn+lfT3kBg9ZLUBO7Q0kjaRx4gW7Q9RcbIyht0Jck7pAzR547KovHV2kASm5fTBO+QBlH7hOKIVn1KFyHlyjp3j+Y73HGbDyTxan4HgaOUU03gli5C/YTaSGJ6TJOhzWY8B0gSt+jOu9zxerWBsEb0RBK8z6r7tuH0c4AEenkMz9oAXn+Wvl8DElbJuSZwS88/dBWhfIpm+AO8cXqS/gKVkcDsziTBFxj1KZLRGWOzkEY0P0neb3CrkbTRaUoTuKUDSTzDzOZCnqIZM0jaWJ5vJPEofb9e6gASNpxIgre0kTX3hTVzmRonj5Ezt0V7IecrST5KfgPtDCSs14QmMN5RRejvmzRX0s/Qs+IAiUUu4FH6G4j2BhLWaSQJrnqDN5BY9bZZbnyGXOB8hdOT5FcQHQwkQ6tRsUeh1mu6AjRr71hBci9+iGbsRnJzV+Yn6e8g7mMAEZpI5whH413SHyfSAwRC7106Y4ps9C5bHyNnuoKkte7U79H0JPklxE0GkgetItIYYzu25A6SFvkDJM3Clg5nbcKOLbt8jJ7JmAjb6W6P099CihlG4qhExM0GkgBAEiAJG0VEWjMQABgDZ8VuIAAw06rHSEZtAAmAMUCS9nmS/BpSLAYSRykifo0uhjrSLoCXI60DePVBmqGTgZeteZK+WgCAM/Er4r0UEdfvwZBrYdRIpJqDGTJJRCLVGgz5KQCwBADLMABn0gCAlSJSfILhon1cBOACAKQAZIg7ANhLjZ/P59OcqR+SrYqIuKrph8y+Ukmr+qYfTg+SWBLqqm646EWk+sS1iBvi6sQPcZnScoi9iKiW7ZDfVyoi2g7DMHQZ0g/DMDQi2g3DMLQZ0g/DMNSvJCoXVS6q3K1y7gNIjgkRVfmpKrmqclGjP6ny85/z44vJoubkH/U3K6vMut9A0kLxrdANmWYAAevle8GrZnPxrVDdcIZkGAv5VohuhlMzO5a+VPleSFmVVVlWZVmVpXcqf4NvFquKqojKX+Lb/W3+33//yejzTV0AAA==" alt="Kugelmann"></div>
+        <div class="sponsor" title="Jörg Grohmann Versicherungsmakler"><img src="data:image/png;base64,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" alt="Grohmann"></div>
+        <div class="sponsor" style="color:var(--text-mute)">+ weitere</div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer" id="kontakt">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="brand" style="margin-bottom:1rem;"><span class="mark">II</span> Inn Isar Racing</div>
+          <p class="muted">Rennsport-Vereinigung aus dem Raum Wasserburg – Eisspeedway, Speedway und die Inn Isar Devils in der 2.&nbsp;Speedway-Bundesliga.</p>
+        </div>
+        <div>
+          <h5>Menü</h5>
+          <a href="#teams">Teams</a>
+          <a href="#fahrer">Fahrer &amp; Erfolge</a>
+          <a href="#videos">Videos &amp; Live</a>
+          <a href="#termine">Rennkalender</a>
+        </div>
+        <div>
+          <h5>Social</h5>
+          <a href="https://youtube.com/@innisarracingteam1753" target="_blank" rel="noopener">YouTube</a>
+          <a href="https://www.instagram.com/innisarracingteam" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://www.facebook.com/onspikes" target="_blank" rel="noopener">Facebook</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span id="year">2026</span> Inn Isar Racing. Alle Rechte vorbehalten.</span>
+        <span><a href="#" style="display:inline;">Impressum</a> · <a href="#" style="display:inline;">Datenschutz</a></span>
+      </div>
+    </div>
+  </footer>
+
+<script>
+/* Inn Isar Racing — animated hero background
+   Ice-speedway feel: horizontal speed streaks + drifting ice spray particles.
+   Pure canvas, no dependencies, respects reduced-motion. */
+(function () {
+  const canvas = document.getElementById('hero-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let w, h, dpr, streaks = [], sparks = [];
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = canvas.clientWidth; h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function makeStreak() {
+    return {
+      x: rand(-0.2, 1) * w,
+      y: rand(0, h),
+      len: rand(60, 260),
+      speed: rand(3, 11),
+      alpha: rand(0.04, 0.22),
+      ice: Math.random() > 0.35
+    };
+  }
+  function makeSpark() {
+    return {
+      x: rand(0, w), y: rand(0, h),
+      vx: rand(1.5, 6), vy: rand(-0.6, 0.6),
+      r: rand(0.5, 2), alpha: rand(0.2, 0.9),
+      ice: Math.random() > 0.4
+    };
+  }
+
+  function init() {
+    resize();
+    streaks = Array.from({ length: Math.round(w / 12) }, makeStreak);
+    sparks = Array.from({ length: Math.round(w / 22) }, makeSpark);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+
+    // subtle vignette base
+    for (const s of streaks) {
+      const grad = ctx.createLinearGradient(s.x, s.y, s.x + s.len, s.y);
+      const col = s.ice ? '53,198,255' : '255,51,32';
+      grad.addColorStop(0, `rgba(${col},0)`);
+      grad.addColorStop(1, `rgba(${col},${s.alpha})`);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = s.ice ? 1.4 : 1;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x + s.len, s.y);
+      ctx.stroke();
+      s.x += s.speed;
+      if (s.x - s.len > w) { Object.assign(s, makeStreak(), { x: -s.len }); }
+    }
+
+    for (const p of sparks) {
+      const col = p.ice ? '120,215,255' : '255,120,90';
+      ctx.fillStyle = `rgba(${col},${p.alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+      p.x += p.vx; p.y += p.vy; p.alpha -= 0.004;
+      if (p.x > w || p.alpha <= 0) Object.assign(p, makeSpark(), { x: -4 });
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  function drawStatic() {
+    // one-frame render for reduced-motion users
+    ctx.clearRect(0, 0, w, h);
+    for (const s of streaks) {
+      const col = s.ice ? '53,198,255' : '255,51,32';
+      ctx.strokeStyle = `rgba(${col},${s.alpha})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + s.len, s.y); ctx.stroke();
+    }
+  }
+
+  window.addEventListener('resize', () => { init(); if (reduce) drawStatic(); });
+  init();
+  if (reduce) drawStatic(); else draw();
+})();
+
+</script>
+<script>
+/* Inn Isar Racing — global UI behaviour */
+(function () {
+  const nav = document.querySelector('.nav');
+  const burger = document.querySelector('.burger');
+
+  // Sticky nav background on scroll
+  const onScroll = () => {
+    if (!nav) return;
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // Mobile menu
+  if (burger && nav) {
+    burger.addEventListener('click', () => nav.classList.toggle('open'));
+    nav.querySelectorAll('.nav-links a').forEach(a =>
+      a.addEventListener('click', () => nav.classList.remove('open')));
+  }
+
+  // Reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Current year in footer
+  const y = document.getElementById('year');
+  if (y) y.textContent = new Date().getFullYear();
+})();
+
+</script>
