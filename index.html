@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inn Isar Racing – Speedway & Eisspeedway Team</title>
   <meta name="description" content="Inn Isar Racing Team & Inn Isar Devils – Eisspeedway und Speedway aus dem Raum Wasserburg. Videos, Termine, Fahrer und Erfolge." />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/style.css" />
   <noscript><style>.reveal{opacity:1 !important;transform:none !important}</style></noscript>
 </head>
@@ -136,11 +133,19 @@
           <span class="live-tag"><span class="live-dot"></span> Live</span>
           <span class="live-note">Der Player zeigt automatisch die laufende Übertragung – außerhalb von Rennen bleibt er ruhig.</span>
         </div>
-        <div class="live-frame">
-          <iframe src="https://www.youtube-nocookie.com/embed/live_stream?channel=UCIkUWT8IvWdasBUywWY22OA"
+        <div class="live-frame embed-gate">
+          <iframe data-embed-src="https://www.youtube-nocookie.com/embed/live_stream?channel=UCIkUWT8IvWdasBUywWY22OA"
                   title="Inn Isar Racing – Livestream"
                   allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
                   allowfullscreen loading="lazy"></iframe>
+          <div class="embed-placeholder">
+            <div>
+              <div class="ep-icon">▶</div>
+              <strong>YouTube-Live-Player</strong>
+              <p>Externer Inhalt von YouTube. Erst mit Klick wird eine Verbindung zu YouTube hergestellt (dabei können Daten an Google/YouTube übertragen werden).</p>
+              <button class="btn btn-primary" type="button" data-load-embed>Video laden</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -262,11 +267,12 @@
       </div>
       <div class="footer-bottom">
         <span>© <span id="year">2026</span> Inn Isar Racing. Alle Rechte vorbehalten.</span>
-        <span><a href="#" style="display:inline;">Impressum</a> · <a href="#" style="display:inline;">Datenschutz</a></span>
+        <span><a href="impressum.html" style="display:inline;">Impressum</a> · <a href="datenschutz.html" style="display:inline;">Datenschutz</a></span>
       </div>
     </div>
   </footer>
 
+  <script src="assets/js/consent.js"></script>
   <script src="assets/js/hero.js"></script>
   <script src="assets/js/main.js"></script>
   <script src="assets/js/content.js"></script>

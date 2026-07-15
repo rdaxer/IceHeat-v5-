@@ -78,6 +78,13 @@
   }
 
   getJSON('data/events.json').then(d => renderEvents(d.events || d)).catch(() => {});
-  getJSON('data/videos.json').then(renderVideos).catch(() => {});
   getJSON('data/sponsors.json').then(renderSponsors).catch(() => {});
+
+  // YouTube thumbnails load images from YouTube -> only after consent (DSGVO).
+  let videoData = null;
+  const maybeVideos = () => {
+    if (videoData && window.iirConsent && window.iirConsent.level === 'all') renderVideos(videoData);
+  };
+  getJSON('data/videos.json').then(d => { videoData = d; maybeVideos(); }).catch(() => {});
+  document.addEventListener('iir-consent', maybeVideos);
 })();

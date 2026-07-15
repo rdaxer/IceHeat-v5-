@@ -3,6 +3,14 @@
    Dark Ice-Speedway theme · ice-blue + racing-red accents
    ===================================================================== */
 
+/* Selbst gehostete Schriften (DSGVO: keine Google-Fonts-CDN-Verbindung) */
+@font-face { font-family:'Barlow Condensed'; font-style:normal; font-weight:500; font-display:swap; src:url('../fonts/barlow-condensed-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family:'Barlow Condensed'; font-style:normal; font-weight:600; font-display:swap; src:url('../fonts/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family:'Barlow Condensed'; font-style:normal; font-weight:700; font-display:swap; src:url('../fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family:'Inter'; font-style:normal; font-weight:400; font-display:swap; src:url('../fonts/inter-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family:'Inter'; font-style:normal; font-weight:500; font-display:swap; src:url('../fonts/inter-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family:'Inter'; font-style:normal; font-weight:600; font-display:swap; src:url('../fonts/inter-latin-600-normal.woff2') format('woff2'); }
+
 :root {
   /* Palette */
   --bg:        #070a0f;
@@ -219,6 +227,22 @@ section { position: relative; }
   background:#000; box-shadow:var(--shadow); }
 .live-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
 
+/* ---------- Consent / embed gating ---------- */
+.embed-gate { position:relative; }
+.embed-placeholder { position:absolute; inset:0; z-index:2; display:grid; place-items:center; text-align:center; padding:24px;
+  background:linear-gradient(135deg,var(--bg-3),var(--surface-2)); color:var(--text-dim); }
+.embed-gate.is-loaded .embed-placeholder { display:none; }
+.embed-placeholder .ep-icon { font-size:2.4rem; color:var(--red); }
+.embed-placeholder strong { display:block; font-family:var(--font-display); text-transform:uppercase; letter-spacing:1px; margin:.4rem 0; color:var(--text); }
+.embed-placeholder p { font-size:.9rem; max-width:440px; margin:0 auto 14px; }
+
+#consent-banner { position:fixed; inset:auto 0 0 0; z-index:200; background:rgba(7,10,15,.97); border-top:1px solid var(--line); backdrop-filter:blur(10px); }
+.consent-inner { max-width:var(--container); margin-inline:auto; padding:16px 22px; display:flex; gap:20px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.consent-text { color:var(--text-dim); font-size:.9rem; max-width:760px; }
+.consent-text a { color:var(--ice); text-decoration:underline; }
+.consent-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.consent-actions .btn { font-size:.95rem; padding:.6rem 1.2rem; }
+
 /* ---------- Social CTA ---------- */
 .social-cta { text-align:center; }
 .social-links { display:flex; justify-content:center; flex-wrap:wrap; gap:16px; margin-top:26px; }
@@ -255,6 +279,16 @@ section { position: relative; }
 .footer a:hover { color:var(--ice); }
 .footer .muted { color:var(--text-mute); font-size:.9rem; }
 .footer-bottom { border-top:1px solid var(--line); padding-top:24px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; color:var(--text-mute); font-size:.85rem; }
+
+/* ---------- Legal / prose ---------- */
+.prose { max-width:760px; color:var(--text-dim); }
+.prose h2 { font-size:1.6rem; color:var(--text); margin:36px 0 12px; }
+.prose h3 { font-family:var(--font-body); font-weight:600; text-transform:none; letter-spacing:0; font-size:1.05rem; color:var(--text); margin:22px 0 6px; }
+.prose p, .prose li { line-height:1.7; margin-bottom:12px; }
+.prose ul { padding-left:20px; list-style:disc; margin-bottom:12px; }
+.prose a { color:var(--ice); text-decoration:underline; }
+.prose .todo { background:rgba(255,206,84,.1); border:1px solid rgba(255,206,84,.35); color:var(--gold); border-radius:8px; padding:2px 8px; font-size:.85rem; }
+.prose .muted { color:var(--text-mute); font-size:.9rem; }
 
 /* ---------- Reveal animation ---------- */
 .reveal { opacity:0; transform:translateY(28px); transition:opacity .7s ease, transform .7s ease; }
