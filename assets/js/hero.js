@@ -22,25 +22,25 @@
     return {
       x: rand(-0.2, 1) * w,
       y: rand(0, h),
-      len: rand(60, 260),
-      speed: rand(3, 11),
-      alpha: rand(0.04, 0.22),
+      len: rand(80, 320),
+      speed: rand(3, 12),
+      alpha: rand(0.10, 0.42),
       ice: Math.random() > 0.35
     };
   }
   function makeSpark() {
     return {
       x: rand(0, w), y: rand(0, h),
-      vx: rand(1.5, 6), vy: rand(-0.6, 0.6),
-      r: rand(0.5, 2), alpha: rand(0.2, 0.9),
+      vx: rand(1.5, 6.5), vy: rand(-0.6, 0.6),
+      r: rand(0.6, 2.6), alpha: rand(0.35, 1),
       ice: Math.random() > 0.4
     };
   }
 
   function init() {
     resize();
-    streaks = Array.from({ length: Math.round(w / 12) }, makeStreak);
-    sparks = Array.from({ length: Math.round(w / 22) }, makeSpark);
+    streaks = Array.from({ length: Math.round(w / 8) }, makeStreak);
+    sparks = Array.from({ length: Math.round(w / 14) }, makeSpark);
   }
 
   function draw() {
@@ -53,7 +53,7 @@
       grad.addColorStop(0, `rgba(${col},0)`);
       grad.addColorStop(1, `rgba(${col},${s.alpha})`);
       ctx.strokeStyle = grad;
-      ctx.lineWidth = s.ice ? 1.4 : 1;
+      ctx.lineWidth = s.ice ? 2 : 1.4;
       ctx.beginPath();
       ctx.moveTo(s.x, s.y);
       ctx.lineTo(s.x + s.len, s.y);
