@@ -1,0 +1,23 @@
+{
+  "name": "iceheat-remotion-shorts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automatische YouTube-Shorts (9:16) aus IceHeat-Renndaten mit Remotion",
+  "scripts": {
+    "studio": "remotion studio",
+    "render:heat": "remotion render HeatCard out/heat.mp4",
+    "render:standings": "remotion render Standings out/standings.mp4",
+    "render:all": "npm run render:heat && npm run render:standings",
+    "upgrade": "remotion upgrade"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "typescript": "^5.4.0"
+  }
+}
