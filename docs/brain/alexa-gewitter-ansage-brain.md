@@ -1,15 +1,28 @@
 # 🧠 Gehirn: Alexa-Gewitter-Ansage funktioniert nicht
 
 > Persistente Wissensdatei für die Aufgabe „Alexa sagt bei Gewitter/Unwetter nichts an".
-> Letzte Aktualisierung: 2026-07-15
+> Letzte Aktualisierung: 2026-08-21
 
-## Kurzfassung (TL;DR)
+## ✅ GELÖST am 2026-08-21 — Alexa spricht wieder
 
-Die Gewitter-/Unwetter-Ansagen laufen **nicht hörbar**, weil die **Alexa-Devices-Integration
-nicht lädt** (`setup_retry`). Ursache ist ein **bekannter, noch ungefixter Bibliotheks-Bug**:
-`aioamazondevices` kann die *Account-Owner-Customer-ID* nicht ermitteln, wenn ein Amazon-Konto
-**viele App-/Geräte-Registrierungen** hat. Die HA-Automationen selbst sind **korrekt** — sie
-warten nur auf verfügbare Geräte.
+Die **Alexa-Devices-Integration ist wieder `loaded`** (Amazon-/Bibliotheks-Bug durch spätere
+HA/Library-Updates behoben). Live getestet 2026-08-21: Sprachdurchsage auf **Wohnzimmer + Küche
+funktioniert hörbar** ✅. Zusätzlich läuft der 2026-07-15 gebaute **Handy-Push-Fallback** (Edge 60 +
+Nothing, Alarm-Ton) als Absicherung weiter. Warnlogik am 2026-08-21 auf **zweistufig** erweitert
+(siehe unten). Der historische Abschnitt darunter dokumentiert den früheren Defekt.
+
+- ⚠️ **Bad-Echo** war beim Test offline (`notify.bad_durchsagen` = unavailable) — kein Warnungsproblem,
+  Wohnzimmer + Küche + Handys decken ab. Bei Bedarf Strom/WLAN des Bad-Echos prüfen.
+- Küche sprach beim 1. Test scheinbar nicht → war nur Standort; DND (`switch.kuche_bitte_nicht_storen`)
+  war off, Lautstärke ok. 2. Test bestätigt hörbar ✅.
+
+## Kurzfassung (TL;DR) — HISTORISCH (Stand bis 2026-08-21, jetzt überholt)
+
+Die Gewitter-/Unwetter-Ansagen liefen **nicht hörbar**, weil die **Alexa-Devices-Integration
+nicht lud** (`setup_retry`). Ursache war ein **damals ungefixter Bibliotheks-Bug**:
+`aioamazondevices` konnte die *Account-Owner-Customer-ID* nicht ermitteln, wenn ein Amazon-Konto
+**viele App-/Geräte-Registrierungen** hat. Die HA-Automationen selbst waren **korrekt** — sie
+warteten nur auf verfügbare Geräte. (→ Inzwischen behoben, siehe Abschnitt oben.)
 
 ## Bestätigte Fehlerursache (Debug-Beweis)
 
