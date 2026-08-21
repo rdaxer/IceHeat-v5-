@@ -104,6 +104,34 @@ In beide Gewitter-Automationen (`…60_minuten_vorwarnung`, `…30_minuten_wiede
   NICHT über `notify.send_message` (das unterstützt keine app-spezifischen `data`).
 - Hinweis: Nutzer hatte Fallback am 2026-07-05 zunächst abgelehnt, am 2026-07-15 dann gewünscht.
 
+### Warnumfang ERWEITERT am 2026-08-21 ✅ (zweistufige Logik)
+Anlass: Nutzer meldete „keine Töne/keine Gewitter angesagt". Diagnose (kein Defekt!):
+Die Automationen liefen sauber (stündliche/30-min time_pattern, Traces = `failed_conditions`),
+aber der Headline-Filter reagierte **nur auf `gewitter`**. Reale Warnungen seit 17. Aug waren
+**Starkregen** (z.B. 21. Aug 09:55–20:00 „Amtliche WARNUNG vor STARKREGEN") → korrekt, aber
+für den Nutzer unerwünscht, ignoriert. Zuletzt echt ausgelöst: 17. Aug 20:09 (damals Gewitter).
+
+**Neue Logik (auf Wunsch des Nutzers):**
+- **TIER A — nur wenn Fenster offen** (Fenster-zu-Ansage): `gewitter | starkregen`
+- **TIER B — immer, fensterunabhängig** (Sicherheits-Ansage): `orkan | hagel | glatteis | schneefall | hitze`
+
+Umsetzung in `…60_minuten_vorwarnung` (das „Gehirn"):
+- Top-Level-Conditions bleiben nativ: OR(Sensor 1/2/3 on) + `time 05:00–22:00`.
+- Headline-Regex + Fenster-Logik als `variables:` (Reihenfolge zählt — spätere Vars nutzen frühere):
+  `offene_fenster` → `hat_fenster_offen` → `headlines` → `treffer_fenster` (`(?i)(gewitter|starkregen)`)
+  → `treffer_extrem` (`(?i)(orkan|hagel|glatteis|schneefall|hitze)`) → `passende_headline`
+  → `soll_warnen` (`treffer_extrem or (treffer_fenster and hat_fenster_offen)`) → `ansage`/`push_titel`.
+- Danach `condition: template {{ soll_warnen }}` als Stop; sonst identischer Alexa+Push-Block.
+- Ansagetext: Extrem → „Achtung! {headline} … Vorsichtsmaßnahmen"; Fenster → „… Folgende Fenster offen …".
+- ⚠️ `condition: template` löst eine Best-Practice-Warnung aus — **bewusst akzeptiert**: Regex auf
+  ein `attribute` + Fensterabhängigkeit haben kein natives Äquivalent.
+
+`…30_minuten_wiederholung`: bleibt reiner Fenster-zu-Reminder → Filter nur auf `gewitter|starkregen`
+erweitert, Extremereignisse **NICHT** wiederholt (sonst 30-min-Spam bei Hitze/Orkan). Text generisch
+(`passende_headline` statt hartem „Gewitter").
+- DWD-Headline-Format ist GROSS („WARNUNG vor STARKREGEN"), Regex daher case-insensitive `(?i)`.
+- Getestet 2026-08-21: Template-Logik (Starkregen→Tier A, Orkan/Hitze→Tier B) + Push-Ton auf beiden Handys ✅.
+
 ## Diagnose-Kochrezept (wie prüfen)
 1. `ha_get_integration(query="alexa")` → Status prüfen (`loaded` = gut, `setup_retry` = kaputt).
 2. `ha_get_state(["notify.wohnzimmer_wohnzimmer_durchsagen", …])` → `available`?
