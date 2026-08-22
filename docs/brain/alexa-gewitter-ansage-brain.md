@@ -145,6 +145,34 @@ erweitert, Extremereignisse **NICHT** wiederholt (sonst 30-min-Spam bei Hitze/Or
 - DWD-Headline-Format ist GROSS („WARNUNG vor STARKREGEN"), Regex daher case-insensitive `(?i)`.
 - Getestet 2026-08-21: Template-Logik (Starkregen→Tier A, Orkan/Hitze→Tier B) + Push-Ton auf beiden Handys ✅.
 
+### Erdbeben-Ansage KOMPLETT NEU GEBAUT am 2026-08-21 ✅ (`automation.erdbeben_alexa_warnung`)
+Anlass: Nutzer bat um Prüfung „auf Funktion und Logik". Befund: **war komplett funktionsunfähig**
+(`last_triggered: null`, konnte nie feuern). Vier Fehler:
+1. **Falsche Quelle:** hörte auf `source: usgs_earthquakes_feed` — Integration **nicht installiert**.
+   Tatsächlich läuft **GDACS** (`source: gdacs`, entry `01JKP45BCDWZNAY1SN4M9WF017`, Radius **2500 km**,
+   scan 300 s, zentriert 48.0576 / 12.1699).
+2. **Falscher Trigger:** `event: geo_location_new_state` existiert nicht → nativer **`geo_location`-Trigger**.
+3. **Falsche Attribute:** las `magnitude`/`place` — GDACS liefert `event_type`, `alert_level`, `severity`
+   (String „Magnitude 5.2M, Depth:10km"), `country`, `description`; State = Entfernung in km.
+4. Kein `continue_on_error`, kein Handy-Fallback.
+
+**Neuer Aufbau (Nutzerwahl: ≤ 300 km, ALLE Beben, jede Alarmstufe):**
+- Neue **Zone `zone.erdbeben_umkreis`** (Radius 300000 m um Zuhause, `passive: false` — passiv würde
+  den Trigger blockieren!). Über `ha_set_zone` angelegt.
+- Trigger: `{trigger: geo_location, source: gdacs, zone: zone.erdbeben_umkreis, event: enter}`.
+- Conditions (template, mangels nativem Attribut-Filter): `event_type` enthält „earthquake"
+  + **Frische-Filter** (`from_date` < 3 h) gegen Wiederholung alter Beben nach HA-Neustart.
+- Variables: `distance` (State→km, gerundet), `land` (country), `alarmstufe` (Red/Orange/Green→Rot/Orange/Grün),
+  `magnitude` (erste Zahl aus `severity` via `regex_findall`, Fallback = ganzer severity-String), `ansage`.
+- Ansage: „Achtung, Erdbeben! Stärke {mag} in {land}, etwa {km} Kilometer entfernt. Alarmstufe {x}."
+- 3× Alexa (`continue_on_error`) + Fallback-Push (Edge 60 + a059p, `alarm_stream`, `tag: erdbeben_warnung`)
+  + persistent_notification. `mode: parallel`, `max: 5`.
+- Getestet 2026-08-21: Template-Logik (Magnitude-Parse, Alarmstufe, Frische) + Push auf beiden Handys ✅.
+  Live-Auslösung nicht testbar (aktuell kein Beben ≤300 km); GDACS listet gerade nur Dürre/Flut/Waldbrand.
+- ⚠️ Offen/Knöpfe: (a) keine Nachtruhe — Beben werden 24/7 angesagt (Sicherheit); bei Bedarf Zeitfenster
+  ergänzen. (b) `country`/severity sind teils englisch. (c) Radius/Alarmstufe jederzeit über Zone bzw.
+  eine `alert_level`-Condition anpassbar.
+
 ## Diagnose-Kochrezept (wie prüfen)
 1. `ha_get_integration(query="alexa")` → Status prüfen (`loaded` = gut, `setup_retry` = kaputt).
 2. `ha_get_state(["notify.wohnzimmer_wohnzimmer_durchsagen", …])` → `available`?
